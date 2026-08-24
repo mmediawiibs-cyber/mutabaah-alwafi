@@ -18,6 +18,7 @@ import {
   HeartHandshake,
   Trash2,
   Edit,
+  X,
 } from "lucide-react";
 import { db } from "./firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
@@ -509,6 +510,18 @@ export default function App() {
     saveToFirebase("records", updated);
   };
 
+  const handleAutoUncheckAll = () => {
+    const updated = { ...records };
+    filteredSantri.forEach((s) => {
+      categories.forEach((c) => {
+        const key = `${selectedDate}_${s.id}_${c.id}`;
+        delete updated[key];
+      });
+    });
+    setRecords(updated);
+    saveToFirebase("records", updated);
+  };
+
   const handleNoteChange = (santriId, text) => {
     const key = `${selectedDate}_${santriId}`;
     const updated = { ...notes, [key]: text };
@@ -580,11 +593,9 @@ export default function App() {
   };
 
   const deleteAchievement = (id) => {
-    if (window.confirm("Yakin ingin menghapus prestasi ini?")) {
-      const updated = achievements.filter((a) => a.id !== id);
-      setAchievements(updated);
-      saveToFirebase("achievements", updated);
-    }
+    const updated = achievements.filter((a) => a.id !== id);
+    setAchievements(updated);
+    saveToFirebase("achievements", updated);
   };
 
   const saveViolation = (e) => {
@@ -612,11 +623,9 @@ export default function App() {
   };
 
   const deleteViolation = (id) => {
-    if (window.confirm("Yakin ingin menghapus catatan pelanggaran ini?")) {
-      const updated = violations.filter((v) => v.id !== id);
-      setViolations(updated);
-      saveToFirebase("violations", updated);
-    }
+    const updated = violations.filter((v) => v.id !== id);
+    setViolations(updated);
+    saveToFirebase("violations", updated);
   };
 
   const addSantri = (e) => {
@@ -1011,6 +1020,12 @@ export default function App() {
                       className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#1356e2] to-[#d38cf6] text-white text-xs font-bold shadow-sm hover:opacity-95 flex items-center gap-2"
                     >
                       <Check className="w-4 h-4" /> Auto-Ceklis
+                    </button>
+                    <button
+                      onClick={handleAutoUncheckAll}
+                      className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 text-xs font-bold hover:bg-rose-100 flex items-center gap-2 shadow-sm transition-all"
+                    >
+                      <X className="w-4 h-4" /> Auto-Unceklis
                     </button>
                     <button
                       onClick={() => window.print()}
