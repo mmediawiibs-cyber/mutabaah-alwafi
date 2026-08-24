@@ -363,7 +363,10 @@ export default function App() {
     date: "",
   });
 
-  // Sinkronisasi Firebase Real-time
+  // State untuk Fitur Edit Foto
+  const [editPhotoId, setEditPhotoId] = useState(null);
+  const [editPhotoUrl, setEditPhotoUrl] = useState("");
+
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash;
@@ -379,7 +382,6 @@ export default function App() {
     const savedAuth = localStorage.getItem("alwafi_admin_auth");
     if (savedAuth === "true") setIsAdmin(true);
 
-    // Listener Firebase
     const unsubSantri = onSnapshot(doc(db, "mutabaah_data", "santri"), (d) => {
       if (d.exists() && d.data().data) setSantriList(d.data().data);
     });
@@ -646,6 +648,29 @@ export default function App() {
       nisn: "",
       ttl: "",
     });
+  };
+
+  // Fungsi Simpan Foto Baru
+  const savePhotoUpdate = (santriId) => {
+    const updated = santriList.map((s) =>
+      s.id === santriId ? { ...s, photo: editPhotoUrl } : s,
+    );
+    setSantriList(updated);
+    saveToFirebase("santri", updated);
+    setEditPhotoId(null);
+  };
+
+  // Fungsi Hapus Santri
+  const deleteSantri = (id) => {
+    if (
+      window.confirm(
+        "Yakin ingin menghapus santri ini secara permanen dari sistem?",
+      )
+    ) {
+      const updated = santriList.filter((s) => s.id !== id);
+      setSantriList(updated);
+      saveToFirebase("santri", updated);
+    }
   };
 
   const calculateScore = (santriId, targetDate = selectedDate) => {
@@ -948,7 +973,7 @@ export default function App() {
       </aside>
 
       <main className="flex-1 p-4 md:p-8 overflow-y-auto space-y-6">
-        {/* HEADER FILTER KELAS (Global) */}
+        {/* HEADER FILTER KELAS */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm print:hidden">
           <div>
             <h2 className="text-xl font-black text-slate-800">
@@ -1714,68 +1739,169 @@ export default function App() {
           </div>
         )}
 
+        {/* TAB PENGATURAN TERBARU (DENGAN TABEL EDIT FOTO) */}
         {activeTab === "pengaturan" && (
-          <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm max-w-xl space-y-4">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2">
-              <PlusCircle className="w-5 h-5 text-[#1356e2]" /> Tambah Santri
-              Baru
-            </h3>
-            <form onSubmit={addSantri} className="space-y-3">
-              <input
-                type="text"
-                value={formSantri.name}
-                onChange={(e) =>
-                  setFormSantri({ ...formSantri, name: e.target.value })
-                }
-                placeholder="Nama Lengkap"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
-              />
-              <select
-                value={formSantri.class}
-                onChange={(e) =>
-                  setFormSantri({ ...formSantri, class: e.target.value })
-                }
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
-              >
-                <option>IX - Chechnya</option>
-                <option>IX - Yordan</option>
-              </select>
-              <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm max-w-xl space-y-4">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <PlusCircle className="w-5 h-5 text-[#1356e2]" /> Tambah Santri
+                Baru
+              </h3>
+              <form onSubmit={addSantri} className="space-y-3">
                 <input
                   type="text"
-                  value={formSantri.nis}
+                  value={formSantri.name}
                   onChange={(e) =>
-                    setFormSantri({ ...formSantri, nis: e.target.value })
+                    setFormSantri({ ...formSantri, name: e.target.value })
                   }
-                  placeholder="NIS"
+                  placeholder="Nama Lengkap"
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
                 />
+                <select
+                  value={formSantri.class}
+                  onChange={(e) =>
+                    setFormSantri({ ...formSantri, class: e.target.value })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
+                >
+                  <option>IX - Chechnya</option>
+                  <option>IX - Yordan</option>
+                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    value={formSantri.nis}
+                    onChange={(e) =>
+                      setFormSantri({ ...formSantri, nis: e.target.value })
+                    }
+                    placeholder="NIS"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
+                  />
+                  <input
+                    type="text"
+                    value={formSantri.nisn}
+                    onChange={(e) =>
+                      setFormSantri({ ...formSantri, nisn: e.target.value })
+                    }
+                    placeholder="NISN"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
+                  />
+                </div>
                 <input
                   type="text"
-                  value={formSantri.nisn}
+                  value={formSantri.ttl}
                   onChange={(e) =>
-                    setFormSantri({ ...formSantri, nisn: e.target.value })
+                    setFormSantri({ ...formSantri, ttl: e.target.value })
                   }
-                  placeholder="NISN"
+                  placeholder="Tempat, Tanggal Lahir"
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
                 />
+                <button
+                  type="submit"
+                  className="w-full py-2.5 rounded-xl bg-[#1356e2] text-white font-bold text-xs"
+                >
+                  Simpan Santri
+                </button>
+              </form>
+            </div>
+
+            <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <User className="w-5 h-5 text-[#1356e2]" /> Kelola Data & Foto
+                Santri
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 text-xs uppercase">
+                      <th className="p-3 rounded-tl-xl">Foto</th>
+                      <th className="p-3">Nama Santri</th>
+                      <th className="p-3">Link Foto (URL / Folder)</th>
+                      <th className="p-3 text-right rounded-tr-xl">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {santriList.map((s) => (
+                      <tr key={s.id} className="hover:bg-slate-50">
+                        <td className="p-3">
+                          <img
+                            src={s.photo}
+                            alt=""
+                            className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                            onError={(e) => {
+                              e.target.src =
+                                "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80";
+                            }}
+                          />
+                        </td>
+                        <td className="p-3 font-bold text-slate-800">
+                          {s.name}{" "}
+                          <span className="block text-[10px] text-slate-400 font-normal">
+                            {s.class}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          {editPhotoId === s.id ? (
+                            <input
+                              type="text"
+                              value={editPhotoUrl}
+                              onChange={(e) => setEditPhotoUrl(e.target.value)}
+                              className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500"
+                              placeholder="/photos/nama.jpg atau https://..."
+                            />
+                          ) : (
+                            <span
+                              className="text-xs text-slate-500 truncate max-w-[200px] block"
+                              title={s.photo}
+                            >
+                              {s.photo}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right">
+                          {editPhotoId === s.id ? (
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => savePhotoUpdate(s.id)}
+                                className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600"
+                              >
+                                Simpan
+                              </button>
+                              <button
+                                onClick={() => setEditPhotoId(null)}
+                                className="px-3 py-1.5 bg-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-300"
+                              >
+                                Batal
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => {
+                                  setEditPhotoId(s.id);
+                                  setEditPhotoUrl(s.photo);
+                                }}
+                                className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
+                                title="Edit Foto"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => deleteSantri(s.id)}
+                                className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"
+                                title="Hapus Santri"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <input
-                type="text"
-                value={formSantri.ttl}
-                onChange={(e) =>
-                  setFormSantri({ ...formSantri, ttl: e.target.value })
-                }
-                placeholder="Tempat, Tanggal Lahir"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
-              />
-              <button
-                type="submit"
-                className="w-full py-2.5 rounded-xl bg-[#1356e2] text-white font-bold text-xs"
-              >
-                Simpan Santri
-              </button>
-            </form>
+            </div>
           </div>
         )}
       </main>
