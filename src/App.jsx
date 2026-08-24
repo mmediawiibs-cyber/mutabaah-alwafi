@@ -1317,7 +1317,7 @@ export default function App() {
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           e.target.src =
-                            "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80";
+                            "https://drive.google.com/drive/u/0/folders/11ecq14R1GJkjF08DBMDGlIidahmvBk-B";
                         }}
                       />
                     </div>
@@ -1830,7 +1830,7 @@ export default function App() {
                             className="w-10 h-10 rounded-full object-cover border border-slate-200"
                             onError={(e) => {
                               e.target.src =
-                                "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80";
+                                "https://drive.google.com/drive/u/0/folders/11ecq14R1GJkjF08DBMDGlIidahmvBk-B";
                             }}
                           />
                         </td>
