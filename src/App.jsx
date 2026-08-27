@@ -19,6 +19,8 @@ import {
   Trash2,
   Edit,
   X,
+  CalendarDays,
+  CheckCircle2,
 } from "lucide-react";
 import { db } from "./firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
@@ -343,7 +345,6 @@ export default function App() {
     nisn: "",
     ttl: "",
   });
-  const [formKat, setFormKat] = useState({ name: "", type: "wajib" });
   const [formAch, setFormAch] = useState({
     id: null,
     title: "",
@@ -362,8 +363,6 @@ export default function App() {
     sanction: "",
     date: "",
   });
-
-  // State untuk Fitur Edit Foto
   const [editPhotoId, setEditPhotoId] = useState(null);
   const [editPhotoUrl, setEditPhotoUrl] = useState("");
 
@@ -549,6 +548,7 @@ export default function App() {
       })
       .join("\n");
 
+    // MENGGUNAKAN DRAFT TEMPLATE WHATSAPP YANG BARU DARI USER
     const message =
       `*LAPORAN MUTABAAH HARIAN AL WAFI IIBS*\n` +
       `Bismillah, Assalamu'alaikum Ummu, berikut laporan mutabaah harian ananda:\n\n` +
@@ -651,7 +651,6 @@ export default function App() {
     });
   };
 
-  // Fungsi Simpan Foto Baru
   const savePhotoUpdate = (santriId) => {
     const updated = santriList.map((s) =>
       s.id === santriId ? { ...s, photo: editPhotoUrl } : s,
@@ -661,7 +660,6 @@ export default function App() {
     setEditPhotoId(null);
   };
 
-  // Fungsi Hapus Santri
   const deleteSantri = (id) => {
     if (
       window.confirm(
@@ -680,7 +678,7 @@ export default function App() {
     let completedWajib = 0;
 
     wajibCats.forEach((c) => {
-      if (isHaid && c.name.includes("Sholat")) {
+      if (isHaid && (c.name.includes("Sholat") || c.name.includes("Puasa"))) {
         completedWajib += 1;
       } else if (records[`${targetDate}_${santriId}_${c.id}`]) {
         completedWajib += 1;
@@ -692,34 +690,41 @@ export default function App() {
       : 0;
 
     let stars = 0;
-    const dhuhaCat = categories.find((c) =>
-      c.name.toLowerCase().includes("dhuha"),
-    );
-    const puasaCat = categories.find((c) =>
-      c.name.toLowerCase().includes("puasa"),
-    );
+    const sunnahCats = categories.filter((c) => c.type === "sunnah");
+    sunnahCats.forEach((c) => {
+      if (records[`${targetDate}_${santriId}_${c.id}`]) stars += 1;
+    });
 
-    if (dhuhaCat && records[`${targetDate}_${santriId}_${dhuhaCat.id}`])
-      stars += 1;
-    if (puasaCat && records[`${targetDate}_${santriId}_${puasaCat.id}`])
-      stars += 1;
-
-    return { percent, stars, isHaid };
+    return { percent, stars, isHaid, sunnahTotal: sunnahCats.length };
   };
 
+  // LOGIKA PEKANAN BARU (Dimulai dari SENIN, berakhir MINGGU)
   const weekData = useMemo(() => {
     const curr = new Date(selectedDate);
-    const first = curr.getDate() - curr.getDay() + 1;
+    const day = curr.getDay(); // 0 = Minggu, 1 = Senin, dst.
+    // Menyesuaikan agar hari Senin menjadi titik awal (jika Minggu (0), mundur 6 hari)
+    const diff = curr.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(new Date(curr).setDate(diff));
+
     const days = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     for (let i = 0; i < 7; i++) {
-      const d = new Date(new Date(curr).setDate(first + i));
+      const d = new Date(new Date(monday).setDate(monday.getDate() + i));
       const isPastOrToday = d <= today;
       days.push({
         dateString: d.toISOString().split("T")[0],
         label: d.getDate().toString().padStart(2, "0"),
+        dayName: [
+          "Minggu",
+          "Senin",
+          "Selasa",
+          "Rabu",
+          "Kamis",
+          "Jumat",
+          "Sabtu",
+        ][d.getDay()],
         isActive: isPastOrToday,
       });
     }
@@ -730,7 +735,6 @@ export default function App() {
   if (publicSantriId) {
     const santri =
       santriList.find((s) => s.id === publicSantriId) || INITIAL_SANTRI[0];
-    const score = calculateScore(santri.id);
     const santriAch = achievements.filter((a) =>
       a.santriIds.includes(santri.id),
     );
@@ -739,6 +743,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8">
         <div className="max-w-4xl mx-auto space-y-6">
+          {/* HEADER PORTAL */}
           <div className="p-6 rounded-3xl bg-gradient-to-r from-[#1356e2] to-[#d38cf6] text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-5">
               <div className="w-24 h-32 rounded-2xl bg-white/20 border-2 border-white/40 overflow-hidden flex items-center justify-center shadow-inner">
@@ -748,16 +753,18 @@ export default function App() {
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     e.target.src =
-                      "https://drive.google.com/drive/u/0/folders/11ecq14R1GJkjF08DBMDGlIidahmvBk-B";
+                      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80";
                   }}
                 />
               </div>
               <div>
-                <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-semibold tracking-wide uppercase">
-                  Portal Wali Santri
+                <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-semibold tracking-wide uppercase flex items-center w-max gap-1">
+                  <User className="w-3 h-3" /> Portal Wali Santri
                 </span>
-                <h1 className="text-3xl font-black mt-2">{santri.name}</h1>
-                <p className="text-white/80 text-sm font-medium">
+                <h1 className="text-2xl md:text-3xl font-black mt-2">
+                  {santri.name}
+                </h1>
+                <p className="text-white/90 text-sm font-medium">
                   Kelas {santri.class} — Al Wafi IIBS
                 </p>
                 <div className="flex flex-wrap gap-3 mt-3 text-xs opacity-90">
@@ -767,24 +774,177 @@ export default function App() {
                   <span>
                     NISN: <b>{santri.nisn}</b>
                   </span>
-                  <span>
-                    TTL: <b>{santri.ttl}</b>
-                  </span>
                 </div>
               </div>
             </div>
-            <div className="bg-white/10 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/20 text-center">
+            <div className="bg-white/10 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/20 text-center shrink-0">
+              <p className="text-sm font-medium text-white/90 mb-1">
+                {getFormattedDate(selectedDate)}
+              </p>
               <p className="text-xs uppercase font-bold text-white/80">
-                Skor Mutabaah Hari Ini
+                Skor Kegiatan Wajib
               </p>
               <p className="text-4xl font-black text-[#f0b732] mt-1">
-                {score.percent}%
+                {calculateScore(santri.id).percent}%
               </p>
-              <div className="flex justify-center gap-1 mt-1 text-emerald-400">
-                {[...Array(score.stars)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-current" />
-                ))}
+            </div>
+          </div>
+
+          {/* DETAIL CEKLIS HARI INI (REVISI SESUAI REQUEST) */}
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+            <div className="flex items-center gap-2 mb-4">
+              <CheckCircle2 className="w-5 h-5 text-[#1356e2]" />
+              <h3 className="font-bold text-slate-800 text-lg">
+                Detail Mutabaah Hari Ini
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {categories.map((c) => {
+                const isHaid = !!haidStatus[`${selectedDate}_${santri.id}`];
+                const isRestricted =
+                  isHaid &&
+                  (c.name.includes("Sholat") || c.name.includes("Puasa"));
+                const isChecked =
+                  records[`${selectedDate}_${santri.id}_${c.id}`];
+
+                let statusText = "Belum Terlaksana";
+                let statusColor = "text-rose-600 bg-rose-50 border-rose-100";
+
+                if (isRestricted) {
+                  statusText = "Udzur Syar'i (Haid)";
+                  statusColor = "text-pink-600 bg-pink-50 border-pink-100";
+                } else if (isChecked) {
+                  statusText = "Terlaksana";
+                  statusColor =
+                    "text-emerald-600 bg-emerald-50 border-emerald-100";
+                }
+
+                return (
+                  <div
+                    key={c.id}
+                    className={`p-3 rounded-xl border flex justify-between items-center ${statusColor}`}
+                  >
+                    <span className="text-sm font-bold">
+                      {c.name}{" "}
+                      <span className="text-[10px] font-normal opacity-70">
+                        ({c.type})
+                      </span>
+                    </span>
+                    <span className="text-xs font-semibold px-2 py-1 bg-white/50 rounded-md">
+                      {statusText}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Tampilkan catatan walas jika ada */}
+            {notes[`${selectedDate}_${santri.id}`] && (
+              <div className="mt-4 p-4 rounded-xl bg-blue-50 border border-blue-100 text-sm">
+                <span className="font-bold text-blue-800 block mb-1">
+                  Catatan Walas:
+                </span>
+                <span className="text-blue-900 leading-relaxed">
+                  {notes[`${selectedDate}_${santri.id}`]}
+                </span>
               </div>
+            )}
+          </div>
+
+          {/* REKAP PEKAN INI (Senin-Minggu) */}
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+            <div className="flex items-center gap-2 mb-4">
+              <CalendarDays className="w-5 h-5 text-[#1356e2]" />
+              <h3 className="font-bold text-slate-800 text-lg">
+                Rekap Pekan Ini{" "}
+                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded ml-2 hidden sm:inline-block">
+                  ({weekData[0].dateString} s.d {weekData[6].dateString})
+                </span>
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase">
+                    <th className="pb-3 px-2">Hari, Tanggal</th>
+                    <th className="pb-3 px-2 text-center">Wajib</th>
+                    <th className="pb-3 px-2 text-center">Sunnah</th>
+                    <th className="pb-3 px-2 text-center">Skor Wajib</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {weekData.map((d) => {
+                    if (!d.isActive) {
+                      return (
+                        <tr key={d.dateString}>
+                          <td className="py-3 px-2 text-slate-400">
+                            {d.dayName}, {d.label}
+                          </td>
+                          <td className="py-3 px-2 text-center text-slate-300">
+                            -
+                          </td>
+                          <td className="py-3 px-2 text-center text-slate-300">
+                            -
+                          </td>
+                          <td className="py-3 px-2 text-center text-slate-300">
+                            -
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    const score = calculateScore(santri.id, d.dateString);
+                    const wajibCats = categories.filter(
+                      (c) => c.type === "wajib",
+                    ).length;
+
+                    // Hitung jumlah aktivitas wajib aktual yang selesai
+                    const isHaid = !!haidStatus[`${d.dateString}_${santri.id}`];
+                    let completedWajib = 0;
+                    categories
+                      .filter((c) => c.type === "wajib")
+                      .forEach((c) => {
+                        if (
+                          isHaid &&
+                          (c.name.includes("Sholat") ||
+                            c.name.includes("Puasa"))
+                        )
+                          completedWajib++;
+                        else if (
+                          records[`${d.dateString}_${santri.id}_${c.id}`]
+                        )
+                          completedWajib++;
+                      });
+
+                    return (
+                      <tr key={d.dateString} className="hover:bg-slate-50">
+                        <td className="py-3 px-2 font-semibold text-slate-700">
+                          {d.dayName}, {d.label}
+                          {isHaid && (
+                            <span className="text-[10px] bg-pink-100 text-pink-600 px-1.5 py-0.5 rounded ml-2">
+                              Udzur
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-2 text-center">
+                          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                            {completedWajib} / {wajibCats}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2 text-center">
+                          <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                            {score.stars} / {score.sunnahTotal}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2 text-center">
+                          <span className="font-black text-slate-800">
+                            {score.percent}%
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -1002,7 +1162,6 @@ export default function App() {
 
         {activeTab === "ceklis" && (
           <div className="space-y-6">
-            {/* TANGGAL & CETAK HANYA DI TAB CEKLIS */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm print:hidden">
               <div className="flex items-center gap-3">
                 <label className="relative cursor-pointer flex items-center justify-center w-10 h-10 bg-blue-50 text-[#1356e2] rounded-xl hover:bg-blue-100 transition-colors">
@@ -1171,14 +1330,6 @@ export default function App() {
                               <span className="font-black text-slate-800">
                                 {score.percent}%
                               </span>
-                              <div className="flex justify-center gap-0.5 text-emerald-500">
-                                {[...Array(score.stars)].map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className="w-3 h-3 fill-current"
-                                  />
-                                ))}
-                              </div>
                             </td>
                             <td className="py-3 px-4 text-right">
                               <div className="flex items-center justify-end gap-2">
@@ -1211,7 +1362,7 @@ export default function App() {
               <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-slate-800">
-                    Rata-Rata Pekanan (Hari Berjalan)
+                    Rata-Rata Pekanan (Senin - Minggu)
                   </h3>
                   <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
                     {weekData[0].dateString} - {weekData[6].dateString}
@@ -1257,15 +1408,6 @@ export default function App() {
                                   >
                                     <div className="text-xs font-bold text-slate-700">
                                       {score.percent}%
-                                    </div>
-                                    <div className="flex justify-center text-emerald-500">
-                                      {Array.from({ length: score.stars }).map(
-                                        (_, i) => (
-                                          <span key={i} className="text-[10px]">
-                                            ★
-                                          </span>
-                                        ),
-                                      )}
                                     </div>
                                   </td>
                                 );
@@ -1318,7 +1460,7 @@ export default function App() {
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           e.target.src =
-                            "https://drive.google.com/drive/u/0/folders/11ecq14R1GJkjF08DBMDGlIidahmvBk-B";
+                            "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80";
                         }}
                       />
                     </div>
@@ -1331,7 +1473,7 @@ export default function App() {
                   <div className="py-3 flex-shrink-0">
                     <div className="flex justify-between items-center text-[10px] mb-1">
                       <span className="font-semibold text-slate-500">
-                        Wajib
+                        Kewajiban
                       </span>
                       <span className="font-black text-blue-600">
                         {score.percent}%
@@ -1345,12 +1487,10 @@ export default function App() {
                     </div>
                     <div className="flex justify-between items-center text-[10px] mt-2">
                       <span className="font-semibold text-slate-500">
-                        Sunnah
+                        Ibadah Sunnah
                       </span>
-                      <div className="flex text-emerald-500 gap-0.5">
-                        {[...Array(score.stars)].map((_, i) => (
-                          <Star key={i} className="w-3 h-3 fill-current" />
-                        ))}
+                      <div className="font-bold text-emerald-600">
+                        {score.stars} / {score.sunnahTotal} Tuntas
                       </div>
                     </div>
                   </div>
@@ -1740,7 +1880,6 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB PENGATURAN TERBARU (DENGAN TABEL EDIT FOTO) */}
         {activeTab === "pengaturan" && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm max-w-xl space-y-4">
@@ -1831,7 +1970,7 @@ export default function App() {
                             className="w-10 h-10 rounded-full object-cover border border-slate-200"
                             onError={(e) => {
                               e.target.src =
-                                "https://drive.google.com/drive/u/0/folders/11ecq14R1GJkjF08DBMDGlIidahmvBk-B";
+                                "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80";
                             }}
                           />
                         </td>
