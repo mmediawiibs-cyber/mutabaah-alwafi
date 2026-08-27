@@ -551,13 +551,14 @@ export default function App() {
 
     const message =
       `*LAPORAN MUTABAAH HARIAN AL WAFI IIBS*\n` +
+      `Bismillah, Assalamu'alaikum Ummu, berikut laporan mutabaah harian ananda:\n\n` +
       `Santriwati: *${santri.name}* (${santri.class})\n` +
       `Tanggal: ${getFormattedDate(selectedDate)}\n` +
       `Kehadiran: *${getKehadiranText(attCode)}* ${isHaid ? "(Status: Udzur/Haid)" : ""}\n\n` +
       `*Rekap Mutabaah:*\n${summaryList}\n\n` +
-      `*Catatan Musyrifah:* ${note}\n\n` +
+      `*Catatan Walas:* ${note}\n\n` +
       `_Barakallahu fiikum._\n` +
-      `Pantau portofolio lengkap ananda di: https://${window.location.host}/#/view/${santri.id}`;
+      `Ummu bisa melihat portofolio lengkap ananda di: https://${window.location.host}/#/view/${santri.id}`;
 
     setModalWA({ open: true, santriName: santri.name, text: message });
   };
