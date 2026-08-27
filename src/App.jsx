@@ -14,6 +14,7 @@ import {
   Award,
   AlertTriangle,
   ChevronRight,
+  ChevronLeft,
   Sparkles,
   HeartHandshake,
   Trash2,
@@ -21,6 +22,7 @@ import {
   X,
   CalendarDays,
   CheckCircle2,
+  Lock,
 } from "lucide-react";
 import { db } from "./firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
@@ -366,11 +368,22 @@ export default function App() {
   const [editPhotoId, setEditPhotoId] = useState(null);
   const [editPhotoUrl, setEditPhotoUrl] = useState("");
 
+  // Keypass State
+  const [isPortalAuth, setIsPortalAuth] = useState(false);
+  const [portalPin, setPortalPin] = useState("");
+  const [portalError, setPortalError] = useState(false);
+
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash;
       if (hash.startsWith("#/view/")) {
-        setPublicSantriId(hash.replace("#/view/", ""));
+        const sid = hash.replace("#/view/", "");
+        setPublicSantriId(sid);
+        if (localStorage.getItem(`auth_santri_${sid}`) === "true") {
+          setIsPortalAuth(true);
+        } else {
+          setIsPortalAuth(false);
+        }
       } else {
         setPublicSantriId(null);
       }
@@ -446,6 +459,23 @@ export default function App() {
     localStorage.removeItem("alwafi_admin_auth");
   };
 
+  const handlePortalLogin = (e, correctNis) => {
+    e.preventDefault();
+    if (portalPin === correctNis) {
+      localStorage.setItem(`auth_santri_${publicSantriId}`, "true");
+      setIsPortalAuth(true);
+      setPortalError(false);
+      setPortalPin("");
+    } else {
+      setPortalError(true);
+    }
+  };
+
+  const handlePortalLogout = () => {
+    localStorage.removeItem(`auth_santri_${publicSantriId}`);
+    setIsPortalAuth(false);
+  };
+
   const getFormattedDate = (dateString) => {
     const d = new Date(dateString);
     const days = [
@@ -458,6 +488,12 @@ export default function App() {
       "Sabtu",
     ];
     return `${days[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  };
+
+  const changeDate = (days) => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + days);
+    setSelectedDate(d.toISOString().split("T")[0]);
   };
 
   const getKehadiranText = (code) => {
@@ -530,6 +566,7 @@ export default function App() {
     saveToFirebase("notes", updated);
   };
 
+  // Fungsi generate WA Individu
   const openWAModal = (santri) => {
     const isHaid = !!haidStatus[`${selectedDate}_${santri.id}`];
     const attCode = attendance[`${selectedDate}_${santri.id}`] || "H";
@@ -548,7 +585,6 @@ export default function App() {
       })
       .join("\n");
 
-    // MENGGUNAKAN DRAFT TEMPLATE WHATSAPP YANG BARU DARI USER
     const message =
       `*LAPORAN MUTABAAH HARIAN AL WAFI IIBS*\n` +
       `Bismillah, Assalamu'alaikum Ummu, berikut laporan mutabaah harian ananda:\n\n` +
@@ -561,6 +597,19 @@ export default function App() {
       `Ummu bisa melihat portofolio lengkap ananda di: https://${window.location.host}/#/view/${santri.id}`;
 
     setModalWA({ open: true, santriName: santri.name, text: message });
+  };
+
+  // Fungsi generate WA Grup (Baru)
+  const openWAGroupModal = () => {
+    let text = `Bismillah, Assalamu'alaikum Ummu.\n\nAlhamdulillah, data mutabaah dan laporan pekanan ananda sudah selesai. Ummu dapat mengunjungi portofolio ananda melalui tautan di bawah ini:\n\n`;
+
+    filteredSantri.forEach((s, idx) => {
+      text += `${idx + 1}. Ananda *${s.name}*\n   Akses di: https://${window.location.host}/#/view/${s.id}\n\n`;
+    });
+
+    text += `Catatan: Gunakan Nomor Induk Santri (NIS) ananda sebagai PIN untuk membuka gembok portofolio.\n\nJazakunnallahu khairan atas kerja sama Ummu dalam memantau perkembangan ananda. Semoga ananda senantiasa diberikan keistiqamahan.\nBarakallahu fiikum.`;
+
+    setModalWA({ open: true, santriName: `Grup ${selectedClass}`, text: text });
   };
 
   const copyToClipboard = () => {
@@ -698,11 +747,9 @@ export default function App() {
     return { percent, stars, isHaid, sunnahTotal: sunnahCats.length };
   };
 
-  // LOGIKA PEKANAN BARU (Dimulai dari SENIN, berakhir MINGGU)
   const weekData = useMemo(() => {
     const curr = new Date(selectedDate);
-    const day = curr.getDay(); // 0 = Minggu, 1 = Senin, dst.
-    // Menyesuaikan agar hari Senin menjadi titik awal (jika Minggu (0), mundur 6 hari)
+    const day = curr.getDay();
     const diff = curr.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(new Date(curr).setDate(diff));
 
@@ -731,10 +778,66 @@ export default function App() {
     return days;
   }, [selectedDate]);
 
-  // ---- RENDER PORTAL WALI SANTRI (VIEW ONLY) ----
+  // ---- RENDER PORTAL WALI SANTRI ----
   if (publicSantriId) {
     const santri =
       santriList.find((s) => s.id === publicSantriId) || INITIAL_SANTRI[0];
+
+    // RENDER LOCK SCREEN JIKA BELUM AUTH
+    if (!isPortalAuth) {
+      return (
+        <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl text-center border border-slate-200">
+            <div className="w-24 h-24 mx-auto bg-slate-50 rounded-full overflow-hidden border-4 border-slate-200 shadow-inner mb-4 flex items-center justify-center">
+              <img
+                src={santri.photo}
+                alt={santri.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.src =
+                    "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80";
+                }}
+              />
+            </div>
+            <h2 className="text-2xl font-black text-slate-800 mb-1">
+              {santri.name}
+            </h2>
+            <p className="text-sm text-slate-500 font-medium mb-6">
+              Silakan buka gembok untuk melihat laporan.
+            </p>
+
+            <form
+              onSubmit={(e) => handlePortalLogin(e, santri.nis)}
+              className="space-y-4"
+            >
+              <div className="relative">
+                <Lock className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="password"
+                  placeholder="Masukkan NIS Ananda..."
+                  value={portalPin}
+                  onChange={(e) => setPortalPin(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl text-center font-bold tracking-[0.2em] focus:outline-none focus:ring-2 focus:ring-[#1356e2] focus:border-transparent transition-all"
+                />
+              </div>
+              {portalError && (
+                <p className="text-xs text-red-500 font-bold bg-red-50 py-2 rounded-lg border border-red-100">
+                  NIS tidak sesuai. Silakan periksa kembali.
+                </p>
+              )}
+              <button
+                type="submit"
+                className="w-full py-3.5 bg-gradient-to-r from-[#1356e2] to-[#d38cf6] text-white font-bold rounded-xl shadow-md hover:opacity-90 transition-all flex justify-center items-center gap-2"
+              >
+                Buka Portofolio
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // RENDER PORTAL UTAMA JIKA SUDAH AUTH
     const santriAch = achievements.filter((a) =>
       a.santriIds.includes(santri.id),
     );
@@ -743,6 +846,16 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8">
         <div className="max-w-4xl mx-auto space-y-6">
+          {/* TOMBOL LOGOUT PORTAL */}
+          <div className="flex justify-end">
+            <button
+              onClick={handlePortalLogout}
+              className="flex items-center gap-2 text-xs font-bold text-red-500 bg-white shadow-sm px-4 py-2 rounded-xl border border-red-100 hover:bg-red-50 transition-all"
+            >
+              <LogOut className="w-4 h-4" /> Kunci Layar (Keluar)
+            </button>
+          </div>
+
           {/* HEADER PORTAL */}
           <div className="p-6 rounded-3xl bg-gradient-to-r from-[#1356e2] to-[#d38cf6] text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-5">
@@ -790,14 +903,41 @@ export default function App() {
             </div>
           </div>
 
-          {/* DETAIL CEKLIS HARI INI (REVISI SESUAI REQUEST) */}
+          {/* DETAIL CEKLIS HARIAN */}
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-            <div className="flex items-center gap-2 mb-4">
-              <CheckCircle2 className="w-5 h-5 text-[#1356e2]" />
-              <h3 className="font-bold text-slate-800 text-lg">
-                Detail Mutabaah Hari Ini
-              </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-[#1356e2]" />
+                <h3 className="font-bold text-slate-800 text-lg">
+                  Detail Mutabaah Harian
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-100 w-max">
+                <button
+                  onClick={() => changeDate(-1)}
+                  className="p-2 bg-white rounded-lg shadow-sm border border-slate-200 text-slate-600 hover:text-[#1356e2] hover:bg-blue-50 transition-all"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <label className="relative flex items-center justify-center px-4 py-2 cursor-pointer hover:text-[#1356e2] transition-colors font-bold text-xs sm:text-sm text-slate-700 min-w-[140px] text-center">
+                  {getFormattedDate(selectedDate)}
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  />
+                </label>
+                <button
+                  onClick={() => changeDate(1)}
+                  className="p-2 bg-white rounded-lg shadow-sm border border-slate-200 text-slate-600 hover:text-[#1356e2] hover:bg-blue-50 transition-all"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {categories.map((c) => {
                 const isHaid = !!haidStatus[`${selectedDate}_${santri.id}`];
@@ -837,7 +977,7 @@ export default function App() {
                 );
               })}
             </div>
-            {/* Tampilkan catatan walas jika ada */}
+
             {notes[`${selectedDate}_${santri.id}`] && (
               <div className="mt-4 p-4 rounded-xl bg-blue-50 border border-blue-100 text-sm">
                 <span className="font-bold text-blue-800 block mb-1">
@@ -850,7 +990,7 @@ export default function App() {
             )}
           </div>
 
-          {/* REKAP PEKAN INI (Senin-Minggu) */}
+          {/* REKAP PEKAN INI */}
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
             <div className="flex items-center gap-2 mb-4">
               <CalendarDays className="w-5 h-5 text-[#1356e2]" />
@@ -897,7 +1037,6 @@ export default function App() {
                       (c) => c.type === "wajib",
                     ).length;
 
-                    // Hitung jumlah aktivitas wajib aktual yang selesai
                     const isHaid = !!haidStatus[`${d.dateString}_${santri.id}`];
                     let completedWajib = 0;
                     categories
@@ -1134,7 +1273,7 @@ export default function App() {
       </aside>
 
       <main className="flex-1 p-4 md:p-8 overflow-y-auto space-y-6">
-        {/* HEADER FILTER KELAS */}
+        {/* HEADER FILTER KELAS & TOMBOL WA GRUP */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm print:hidden">
           <div>
             <h2 className="text-xl font-black text-slate-800">
@@ -1144,47 +1283,57 @@ export default function App() {
               Kelola data kedisiplinan dan ibadah santriwati.
             </p>
           </div>
-          <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
-            <span className="text-xs font-bold text-slate-500 pl-2">
-              Filter Rombel:
-            </span>
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="bg-white border border-slate-200 text-sm font-bold text-slate-800 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={openWAGroupModal}
+              className="px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-600 text-xs font-bold border border-emerald-200 hover:bg-emerald-100 flex items-center gap-2 shadow-sm transition-all"
             >
-              <option value="Semua">Semua Kelas</option>
-              <option value="IX - Chechnya">IX - Chechnya</option>
-              <option value="IX - Yordan">IX - Yordan</option>
-            </select>
+              <MessageCircle className="w-4 h-4" /> Kirim WA Grup
+            </button>
+            <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
+              <span className="text-xs font-bold text-slate-500 pl-2">
+                Filter Rombel:
+              </span>
+              <select
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="bg-white border border-slate-200 text-sm font-bold text-slate-800 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="Semua">Semua Kelas</option>
+                <option value="IX - Chechnya">IX - Chechnya</option>
+                <option value="IX - Yordan">IX - Yordan</option>
+              </select>
+            </div>
           </div>
         </header>
 
         {activeTab === "ceklis" && (
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm print:hidden">
-              <div className="flex items-center gap-3">
-                <label className="relative cursor-pointer flex items-center justify-center w-10 h-10 bg-blue-50 text-[#1356e2] rounded-xl hover:bg-blue-100 transition-colors">
-                  <Calendar className="w-5 h-5 pointer-events-none" />
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                  />
-                </label>
-                <div>
-                  <h3 className="text-base font-black text-slate-800">
-                    {getFormattedDate(selectedDate)}
-                  </h3>
-                  <p className="text-xs text-slate-400 font-medium">
-                    Tanggal Pencatatan Aktif
-                  </p>
+              <div className="flex flex-wrap items-center gap-6">
+                {/* KALENDER */}
+                <div className="flex items-center gap-3">
+                  <label className="relative cursor-pointer flex items-center justify-center w-10 h-10 bg-blue-50 text-[#1356e2] rounded-xl hover:bg-blue-100 transition-colors">
+                    <Calendar className="w-5 h-5 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    />
+                  </label>
+                  <div>
+                    <h3 className="text-base font-black text-slate-800">
+                      {getFormattedDate(selectedDate)}
+                    </h3>
+                    <p className="text-xs text-slate-400 font-medium">
+                      Tanggal Pencatatan
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <div className="flex bg-slate-100 p-1 rounded-xl">
+                {/* TOGGLE HARIAN/PEKANAN (Dipindah ke samping kalender) */}
+                <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
                   <button
                     onClick={() => setViewMode("harian")}
                     className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${viewMode === "harian" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"}`}
@@ -1198,6 +1347,10 @@ export default function App() {
                     Pekanan
                   </button>
                 </div>
+              </div>
+
+              {/* ACTION BUTTONS */}
+              <div className="flex items-center gap-2">
                 {viewMode === "harian" && (
                   <>
                     <button
@@ -1345,7 +1498,7 @@ export default function App() {
                                 <button
                                   onClick={() => openWAModal(s)}
                                   className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
-                                  title="Kirim WA"
+                                  title="Kirim WA Individu"
                                 >
                                   <MessageCircle className="w-4 h-4" />
                                 </button>
@@ -1914,7 +2067,7 @@ export default function App() {
                     onChange={(e) =>
                       setFormSantri({ ...formSantri, nis: e.target.value })
                     }
-                    placeholder="NIS"
+                    placeholder="NIS (Digunakan sbg PIN)"
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
                   />
                   <input
