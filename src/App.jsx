@@ -24,6 +24,8 @@ import {
   CheckCircle2,
   Lock,
   Users,
+  ExternalLink,
+  FileText,
 } from "lucide-react";
 import { db } from "./firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
@@ -38,6 +40,7 @@ const INITIAL_SANTRI = [
     nis: "242507017",
     nisn: "0129024447",
     photo: "/photos/default.jpg",
+    pin: "242507017",
   },
   {
     id: "nama_santri_2",
@@ -47,6 +50,7 @@ const INITIAL_SANTRI = [
     nis: "242507018",
     nisn: "0125735361",
     photo: "/photos/default.jpg",
+    pin: "242507018",
   },
   {
     id: "nama_santri_3",
@@ -56,6 +60,7 @@ const INITIAL_SANTRI = [
     nis: "242507021",
     nisn: "0112097503",
     photo: "/photos/default.jpg",
+    pin: "242507021",
   },
   {
     id: "nama_santri_4",
@@ -65,6 +70,7 @@ const INITIAL_SANTRI = [
     nis: "242507038",
     nisn: "0119505547",
     photo: "/photos/default.jpg",
+    pin: "242507038",
   },
   {
     id: "nama_santri_5",
@@ -74,6 +80,7 @@ const INITIAL_SANTRI = [
     nis: "242507039",
     nisn: "0114771974",
     photo: "/photos/default.jpg",
+    pin: "242507039",
   },
   {
     id: "nama_santri_6",
@@ -83,6 +90,7 @@ const INITIAL_SANTRI = [
     nis: "242507042",
     nisn: "0126745351",
     photo: "/photos/default.jpg",
+    pin: "242507042",
   },
   {
     id: "nama_santri_7",
@@ -92,6 +100,7 @@ const INITIAL_SANTRI = [
     nis: "242507043",
     nisn: "0123391968",
     photo: "/photos/default.jpg",
+    pin: "242507043",
   },
   {
     id: "nama_santri_8",
@@ -101,6 +110,7 @@ const INITIAL_SANTRI = [
     nis: "242507044",
     nisn: "0122609680",
     photo: "/photos/default.jpg",
+    pin: "242507044",
   },
   {
     id: "nama_santri_9",
@@ -110,6 +120,7 @@ const INITIAL_SANTRI = [
     nis: "242507060",
     nisn: "0122194176",
     photo: "/photos/default.jpg",
+    pin: "242507060",
   },
   {
     id: "nama_santri_10",
@@ -119,6 +130,7 @@ const INITIAL_SANTRI = [
     nis: "242507062",
     nisn: "0121685168",
     photo: "/photos/default.jpg",
+    pin: "242507062",
   },
   {
     id: "nama_santri_11",
@@ -128,6 +140,7 @@ const INITIAL_SANTRI = [
     nis: "242507082",
     nisn: "3128481787",
     photo: "/photos/default.jpg",
+    pin: "242507082",
   },
   {
     id: "nama_santri_12",
@@ -137,6 +150,7 @@ const INITIAL_SANTRI = [
     nis: "242507083",
     nisn: "0126182252",
     photo: "/photos/default.jpg",
+    pin: "242507083",
   },
   {
     id: "nama_santri_13",
@@ -146,6 +160,7 @@ const INITIAL_SANTRI = [
     nis: "242507088",
     nisn: "0126222171",
     photo: "/photos/default.jpg",
+    pin: "242507088",
   },
   {
     id: "nama_santri_14",
@@ -155,6 +170,7 @@ const INITIAL_SANTRI = [
     nis: "242507089",
     nisn: "3115533551",
     photo: "/photos/default.jpg",
+    pin: "242507089",
   },
   {
     id: "nama_santri_15",
@@ -164,6 +180,7 @@ const INITIAL_SANTRI = [
     nis: "252608114",
     nisn: "N/A",
     photo: "/photos/default.jpg",
+    pin: "252608114",
   },
 
   // Kelas IX - Yordan
@@ -175,6 +192,7 @@ const INITIAL_SANTRI = [
     nis: "242507007",
     nisn: "0128919639",
     photo: "/photos/default.jpg",
+    pin: "242507007",
   },
   {
     id: "nama_santri_17",
@@ -184,6 +202,7 @@ const INITIAL_SANTRI = [
     nis: "242507097",
     nisn: "0111507273",
     photo: "/photos/default.jpg",
+    pin: "242507097",
   },
   {
     id: "nama_santri_18",
@@ -193,6 +212,7 @@ const INITIAL_SANTRI = [
     nis: "242507008",
     nisn: "117456013",
     photo: "/photos/default.jpg",
+    pin: "242507008",
   },
   {
     id: "nama_santri_19",
@@ -202,6 +222,7 @@ const INITIAL_SANTRI = [
     nis: "242507012",
     nisn: "0112339380",
     photo: "/photos/default.jpg",
+    pin: "242507012",
   },
   {
     id: "nama_santri_20",
@@ -211,6 +232,7 @@ const INITIAL_SANTRI = [
     nis: "242507029",
     nisn: "0116613525",
     photo: "/photos/default.jpg",
+    pin: "242507029",
   },
   {
     id: "nama_santri_21",
@@ -220,6 +242,7 @@ const INITIAL_SANTRI = [
     nis: "242507035",
     nisn: "0112553340",
     photo: "/photos/default.jpg",
+    pin: "242507035",
   },
   {
     id: "nama_santri_22",
@@ -229,6 +252,7 @@ const INITIAL_SANTRI = [
     nis: "242507037",
     nisn: "0128500013",
     photo: "/photos/default.jpg",
+    pin: "242507037",
   },
   {
     id: "nama_santri_23",
@@ -238,6 +262,7 @@ const INITIAL_SANTRI = [
     nis: "242507041",
     nisn: "3118625060",
     photo: "/photos/default.jpg",
+    pin: "242507041",
   },
   {
     id: "nama_santri_24",
@@ -247,6 +272,7 @@ const INITIAL_SANTRI = [
     nis: "242507045",
     nisn: "122533021",
     photo: "/photos/default.jpg",
+    pin: "242507045",
   },
   {
     id: "nama_santri_25",
@@ -256,6 +282,7 @@ const INITIAL_SANTRI = [
     nis: "242507061",
     nisn: "126639709",
     photo: "/photos/default.jpg",
+    pin: "242507061",
   },
   {
     id: "nama_santri_26",
@@ -265,6 +292,7 @@ const INITIAL_SANTRI = [
     nis: "242507064",
     nisn: "0127633617",
     photo: "/photos/default.jpg",
+    pin: "242507064",
   },
   {
     id: "nama_santri_27",
@@ -274,6 +302,7 @@ const INITIAL_SANTRI = [
     nis: "242507065",
     nisn: "0121599305",
     photo: "/photos/default.jpg",
+    pin: "242507065",
   },
   {
     id: "nama_santri_28",
@@ -283,6 +312,7 @@ const INITIAL_SANTRI = [
     nis: "242507071",
     nisn: "N/A",
     photo: "/photos/default.jpg",
+    pin: "242507071",
   },
   {
     id: "nama_santri_29",
@@ -292,6 +322,7 @@ const INITIAL_SANTRI = [
     nis: "242507079",
     nisn: "0113555768",
     photo: "/photos/default.jpg",
+    pin: "242507079",
   },
   {
     id: "nama_santri_30",
@@ -301,6 +332,7 @@ const INITIAL_SANTRI = [
     nis: "242507085",
     nisn: "3118625060",
     photo: "/photos/default.jpg",
+    pin: "242507085",
   },
 ];
 
@@ -344,12 +376,14 @@ export default function App() {
   const [publicSantriId, setPublicSantriId] = useState(null);
   const [showKatalog, setShowKatalog] = useState(false);
 
+  // Forms State
   const [formSantri, setFormSantri] = useState({
     name: "",
     class: "IX - Chechnya",
     nis: "",
     nisn: "",
     ttl: "",
+    pin: "",
   });
   const [formAch, setFormAch] = useState({
     id: null,
@@ -359,6 +393,7 @@ export default function App() {
     level: "Internal Sekolah",
     organizer: "",
     date: "",
+    documentUrl: "",
     santriIds: [],
   });
   const [formVio, setFormVio] = useState({
@@ -369,8 +404,13 @@ export default function App() {
     sanction: "",
     date: "",
   });
-  const [editPhotoId, setEditPhotoId] = useState(null);
-  const [editPhotoUrl, setEditPhotoUrl] = useState("");
+
+  // Edit Data Santri State (Photo & PIN)
+  const [editSantriId, setEditSantriId] = useState(null);
+  const [editForm, setEditForm] = useState({ photo: "", pin: "" });
+
+  // Pop-up Prestasi State
+  const [selectedAch, setSelectedAch] = useState(null);
 
   // Keypass State
   const [isPortalAuth, setIsPortalAuth] = useState(false);
@@ -468,9 +508,9 @@ export default function App() {
     localStorage.removeItem("alwafi_admin_auth");
   };
 
-  const handlePortalLogin = (e, correctNis) => {
+  const handlePortalLogin = (e, correctPin) => {
     e.preventDefault();
-    if (portalPin === correctNis) {
+    if (portalPin === correctPin) {
       localStorage.setItem(`auth_santri_${publicSantriId}`, "true");
       setIsPortalAuth(true);
       setPortalError(false);
@@ -575,11 +615,12 @@ export default function App() {
     saveToFirebase("notes", updated);
   };
 
-  // Fungsi generate WA Individu
   const openWAModal = (santri) => {
     const isHaid = !!haidStatus[`${selectedDate}_${santri.id}`];
     const attCode = attendance[`${selectedDate}_${santri.id}`] || "H";
-    const note = notes[`${selectedDate}_${santri.id}`] || "-";
+    const note =
+      notes[`${selectedDate}_${santri.id}`] ||
+      "Alhamdulillah tidak ada catatan";
 
     let summaryList = categories
       .map((c) => {
@@ -611,7 +652,7 @@ export default function App() {
   const openWAGroupModal = () => {
     let text = `Bismillah, Assalamu'alaikum Ummu.\n\nAlhamdulillah, data mutabaah dan laporan pekanan ananda sudah selesai kami perbarui. Ummu dapat memantau perkembangan ibadah, kedisiplinan, serta portofolio ananda melalui tautan (link) khusus di bawah ini:\n\n`;
     text += `👉 https://${window.location.host}/#/katalog\n\n`;
-    text += `Silakan klik tautan tersebut, cari nama ananda, lalu gunakan *Nomor Induk Santri (NIS)* ananda sebagai PIN rahasia untuk membuka gembok portofolio.\n\nJazakunnallahu khairan atas kerja sama Ummu dalam memantau perkembangan ananda. Semoga ananda senantiasa diberikan keistiqamahan.\nBarakallahu fiikum.`;
+    text += `Silakan klik tautan tersebut, cari nama ananda, lalu gunakan *PIN Rahasia* ananda (default: NIS) untuk membuka gembok portofolio.\n\nJazakunnallahu khairan atas kerja sama Ummu dalam memantau perkembangan ananda. Semoga ananda senantiasa diberikan keistiqamahan.\nBarakallahu fiikum.`;
 
     setModalWA({
       open: true,
@@ -648,6 +689,7 @@ export default function App() {
       level: "Internal Sekolah",
       organizer: "",
       date: "",
+      documentUrl: "",
       santriIds: [],
     });
   };
@@ -691,10 +733,12 @@ export default function App() {
   const addSantri = (e) => {
     e.preventDefault();
     if (!formSantri.name) return;
+    const defaultPin = formSantri.pin || formSantri.nis;
     const newS = {
       ...formSantri,
       id: `santri_${Date.now()}`,
       photo: `/photos/default.jpg`,
+      pin: defaultPin,
     };
     const updated = [...santriList, newS];
     setSantriList(updated);
@@ -705,16 +749,19 @@ export default function App() {
       nis: "",
       nisn: "",
       ttl: "",
+      pin: "",
     });
   };
 
-  const savePhotoUpdate = (santriId) => {
+  const saveSantriDataUpdate = (santriId) => {
     const updated = santriList.map((s) =>
-      s.id === santriId ? { ...s, photo: editPhotoUrl } : s,
+      s.id === santriId
+        ? { ...s, photo: editForm.photo, pin: editForm.pin }
+        : s,
     );
     setSantriList(updated);
     saveToFirebase("santri", updated);
-    setEditPhotoId(null);
+    setEditSantriId(null);
   };
 
   const deleteSantri = (id) => {
@@ -848,6 +895,7 @@ export default function App() {
   if (publicSantriId) {
     const santri =
       santriList.find((s) => s.id === publicSantriId) || INITIAL_SANTRI[0];
+    const santriPin = santri.pin || santri.nis; // Default fallback to NIS if pin is missing
 
     // RENDER LOCK SCREEN JIKA BELUM AUTH DAN BUKAN ADMIN (Bypass Admin)
     if (!isPortalAuth && !isAdmin) {
@@ -879,14 +927,14 @@ export default function App() {
             </p>
 
             <form
-              onSubmit={(e) => handlePortalLogin(e, santri.nis)}
+              onSubmit={(e) => handlePortalLogin(e, santriPin)}
               className="space-y-4"
             >
               <div className="relative">
                 <Lock className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="password"
-                  placeholder="Masukkan NIS Ananda..."
+                  placeholder="Masukkan PIN Ananda..."
                   value={portalPin}
                   onChange={(e) => setPortalPin(e.target.value)}
                   className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl text-center font-bold tracking-[0.2em] focus:outline-none focus:ring-2 focus:ring-[#1356e2] focus:border-transparent transition-all"
@@ -894,7 +942,7 @@ export default function App() {
               </div>
               {portalError && (
                 <p className="text-xs text-red-500 font-bold bg-red-50 py-2 rounded-lg border border-red-100">
-                  NIS tidak sesuai. Silakan periksa kembali.
+                  PIN tidak sesuai. Silakan periksa kembali.
                 </p>
               )}
               <button
@@ -1025,6 +1073,30 @@ export default function App() {
               </div>
             </div>
 
+            {/* STATUS KEHADIRAN */}
+            <div className="mb-4 flex flex-wrap gap-2">
+              <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 flex items-center gap-2">
+                Status Kehadiran:
+                <span
+                  className={`px-2 py-0.5 rounded ${attendance[`${selectedDate}_${santri.id}`] === "I" ? "bg-amber-100 text-amber-700" : attendance[`${selectedDate}_${santri.id}`] === "S" ? "bg-amber-100 text-amber-700" : attendance[`${selectedDate}_${santri.id}`] === "A" ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}
+                >
+                  {getKehadiranText(
+                    attendance[`${selectedDate}_${santri.id}`] || "H",
+                  )}
+                </span>
+              </div>
+              <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 flex items-center gap-2">
+                Kondisi:
+                <span
+                  className={`px-2 py-0.5 rounded ${haidStatus[`${selectedDate}_${santri.id}`] ? "bg-pink-100 text-pink-700" : "bg-blue-100 text-blue-700"}`}
+                >
+                  {haidStatus[`${selectedDate}_${santri.id}`]
+                    ? "Udzur Syar'i"
+                    : "Suci"}
+                </span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {categories.map((c) => {
                 const isHaid = !!haidStatus[`${selectedDate}_${santri.id}`];
@@ -1065,16 +1137,17 @@ export default function App() {
               })}
             </div>
 
-            {notes[`${selectedDate}_${santri.id}`] && (
-              <div className="mt-4 p-4 rounded-xl bg-blue-50 border border-blue-100 text-sm">
-                <span className="font-bold text-blue-800 block mb-1">
-                  Catatan Walas:
-                </span>
-                <span className="text-blue-900 leading-relaxed">
-                  {notes[`${selectedDate}_${santri.id}`]}
-                </span>
-              </div>
-            )}
+            <div className="mt-4 p-4 rounded-xl bg-blue-50 border border-blue-100 text-sm">
+              <span className="font-bold text-blue-800 block mb-1">
+                Catatan Harian Walas:
+              </span>
+              <span className="text-blue-900 leading-relaxed font-medium italic">
+                "
+                {notes[`${selectedDate}_${santri.id}`] ||
+                  "Alhamdulillah tidak ada catatan khusus hari ini."}
+                "
+              </span>
+            </div>
           </div>
 
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
@@ -1188,22 +1261,27 @@ export default function App() {
               ) : (
                 <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                   {santriAch.map((a) => (
-                    <div
+                    <button
                       key={a.id}
-                      className="p-4 rounded-2xl bg-blue-50/50 border border-blue-100"
+                      onClick={() => setSelectedAch(a)}
+                      className="w-full text-left p-4 rounded-2xl bg-blue-50/50 border border-blue-100 hover:bg-blue-100/50 hover:border-blue-300 transition-all group"
                     >
                       <div className="flex items-start justify-between">
-                        <h4 className="font-bold text-blue-900 text-sm">
+                        <h4 className="font-bold text-blue-900 text-sm group-hover:text-blue-700">
                           {a.title}
                         </h4>
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#f0b732] text-white">
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#f0b732] text-white shrink-0 ml-2">
                           {a.rank}
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mt-1">
                         {a.level} • {a.organizer}
                       </p>
-                    </div>
+                      <div className="mt-2 text-[10px] font-bold text-blue-600 flex items-center gap-1 opacity-70 group-hover:opacity-100">
+                        Klik untuk melihat lampiran/detail{" "}
+                        <ExternalLink className="w-3 h-3" />
+                      </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -1252,6 +1330,74 @@ export default function App() {
             </div>
           </div>
         </div>
+
+        {/* MODAL POP-UP PRESTASI */}
+        {selectedAch && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl relative">
+              <button
+                onClick={() => setSelectedAch(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="text-center">
+                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl mx-auto flex items-center justify-center mb-3">
+                  <Award className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-black text-slate-800 leading-tight">
+                  {selectedAch.title}
+                </h3>
+                <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold bg-[#f0b732] text-white uppercase tracking-wide">
+                  {selectedAch.rank}
+                </span>
+              </div>
+
+              <div className="space-y-3 text-sm border-t border-b border-slate-100 py-4">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Tingkat:</span>{" "}
+                  <span className="font-bold text-slate-800">
+                    {selectedAch.level}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Penyelenggara:</span>{" "}
+                  <span className="font-bold text-slate-800 text-right">
+                    {selectedAch.organizer}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Tanggal:</span>{" "}
+                  <span className="font-bold text-slate-800">
+                    {selectedAch.date}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Kategori:</span>{" "}
+                  <span className="font-bold text-slate-800">
+                    {selectedAch.type}
+                  </span>
+                </div>
+              </div>
+
+              {selectedAch.documentUrl ? (
+                <a
+                  href={selectedAch.documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3.5 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white font-bold rounded-xl shadow-sm transition-all flex justify-center items-center gap-2"
+                >
+                  <FileText className="w-4 h-4" /> Buka Lampiran Dokumen/Foto
+                </a>
+              ) : (
+                <div className="w-full py-3 text-center bg-slate-50 border border-slate-100 rounded-xl text-slate-400 text-xs italic">
+                  Tidak ada lampiran dokumen.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1680,9 +1826,9 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB PROFIL & CARD SANTRI TERBARU */}
+        {/* TAB PROFIL & CARD SANTRI TERBARU (5 KOLOM + DATA DETAIL) */}
         {activeTab === "profil" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {filteredSantri.map((s) => {
               const score = calculateScore(s.id);
               const santriAch = achievements.filter((a) =>
@@ -1690,10 +1836,24 @@ export default function App() {
               );
               const santriVio = violations.filter((v) => v.santriId === s.id);
 
+              const attCode = attendance[`${selectedDate}_${s.id}`] || "H";
+              const attText =
+                attCode === "H"
+                  ? "Hadir"
+                  : attCode === "I"
+                    ? "Izin"
+                    : attCode === "S"
+                      ? "Sakit"
+                      : "Alpha";
+              const isHaid = !!haidStatus[`${selectedDate}_${s.id}`];
+              const note =
+                notes[`${selectedDate}_${s.id}`] ||
+                "Alhamdulillah tidak ada catatan";
+
               return (
                 <div
                   key={s.id}
-                  className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-all flex flex-col h-auto min-h-[460px]"
+                  className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-all flex flex-col h-auto min-h-[500px]"
                 >
                   {/* Foto & Identitas */}
                   <div className="flex flex-col items-center text-center pb-3 border-b border-slate-100">
@@ -1720,6 +1880,25 @@ export default function App() {
                     <p className="text-[10px] text-slate-400 mt-0.5">{s.ttl}</p>
                   </div>
 
+                  {/* Keterangan Harian & Catatan */}
+                  <div className="py-3 flex flex-col border-b border-slate-100 shrink-0">
+                    <div className="flex gap-2 text-[10px] mb-2 justify-center">
+                      <span
+                        className={`px-2 py-0.5 rounded-md font-bold ${attCode === "I" || attCode === "S" ? "bg-amber-100 text-amber-700" : attCode === "A" ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}
+                      >
+                        {attText}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-md font-bold ${isHaid ? "bg-pink-100 text-pink-700" : "bg-blue-100 text-blue-700"}`}
+                      >
+                        {isHaid ? "Udzur" : "Suci"}
+                      </span>
+                    </div>
+                    <div className="text-[10px] bg-slate-50 p-2 rounded-lg text-slate-600 italic text-center font-medium shadow-inner">
+                      "{note}"
+                    </div>
+                  </div>
+
                   {/* Indikator Ceklis Detail (Hari Ini) */}
                   <div className="py-3 flex flex-col gap-2 border-b border-slate-100 shrink-0">
                     {/* Wajib */}
@@ -1729,8 +1908,6 @@ export default function App() {
                         .map((c) => {
                           const isChecked =
                             records[`${selectedDate}_${s.id}_${c.id}`];
-                          const isHaid =
-                            !!haidStatus[`${selectedDate}_${s.id}`];
                           const isRestricted =
                             isHaid &&
                             (c.name.includes("Sholat") ||
@@ -1910,6 +2087,21 @@ export default function App() {
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+                {/* Field Link Dokumen */}
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
+                    Link Bukti/Dokumentasi (Opsional - URL Drive/Foto)
+                  </label>
+                  <input
+                    type="text"
+                    value={formAch.documentUrl}
+                    onChange={(e) =>
+                      setFormAch({ ...formAch, documentUrl: e.target.value })
+                    }
+                    placeholder="https://drive.google.com/... atau /dokumen/file.pdf"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
                 <div className="md:col-span-3">
                   <label className="block text-xs font-bold text-slate-600 mb-2">
                     Santri yang Mengikuti
@@ -1954,6 +2146,7 @@ export default function App() {
                           level: "",
                           organizer: "",
                           date: "",
+                          documentUrl: "",
                           santriIds: [],
                         })
                       }
@@ -1967,15 +2160,20 @@ export default function App() {
             </div>
 
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
-              <h3 className="font-bold text-slate-800 mb-4">Daftar Prestasi</h3>
+              <h3 className="font-bold text-slate-800 mb-4">
+                Daftar Prestasi (Klik untuk detail)
+              </h3>
               <div className="divide-y divide-slate-100">
                 {achievements.map((a) => (
                   <div
                     key={a.id}
-                    className="py-3 flex justify-between items-center"
+                    className="py-3 flex justify-between items-center group"
                   >
-                    <div>
-                      <h4 className="font-bold text-sm text-slate-800">
+                    <button
+                      onClick={() => setSelectedAch(a)}
+                      className="text-left flex-1 cursor-pointer"
+                    >
+                      <h4 className="font-bold text-sm text-slate-800 group-hover:text-blue-600 transition-colors">
                         {a.title}{" "}
                         <span className="bg-[#f0b732] text-white px-1.5 py-0.5 rounded text-[10px] ml-2">
                           {a.rank}
@@ -1992,7 +2190,7 @@ export default function App() {
                           .filter(Boolean)
                           .join(", ")}
                       </p>
-                    </div>
+                    </button>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setFormAch(a)}
@@ -2176,6 +2374,7 @@ export default function App() {
           </div>
         )}
 
+        {/* TAB PENGATURAN (Edit Data Foto & PIN) */}
         {activeTab === "pengaturan" && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm max-w-xl space-y-4">
@@ -2210,7 +2409,7 @@ export default function App() {
                     onChange={(e) =>
                       setFormSantri({ ...formSantri, nis: e.target.value })
                     }
-                    placeholder="NIS (Digunakan sbg PIN)"
+                    placeholder="NIS Santri"
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
                   />
                   <input
@@ -2223,15 +2422,26 @@ export default function App() {
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
                   />
                 </div>
-                <input
-                  type="text"
-                  value={formSantri.ttl}
-                  onChange={(e) =>
-                    setFormSantri({ ...formSantri, ttl: e.target.value })
-                  }
-                  placeholder="Tempat, Tanggal Lahir"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    value={formSantri.ttl}
+                    onChange={(e) =>
+                      setFormSantri({ ...formSantri, ttl: e.target.value })
+                    }
+                    placeholder="Tempat, Tanggal Lahir"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
+                  />
+                  <input
+                    type="text"
+                    value={formSantri.pin}
+                    onChange={(e) =>
+                      setFormSantri({ ...formSantri, pin: e.target.value })
+                    }
+                    placeholder="PIN Portal (Kosongkan = NIS)"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
+                  />
+                </div>
                 <button
                   type="submit"
                   className="w-full py-2.5 rounded-xl bg-[#1356e2] text-white font-bold text-xs"
@@ -2243,8 +2453,8 @@ export default function App() {
 
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
               <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <User className="w-5 h-5 text-[#1356e2]" /> Kelola Data & Foto
-                Santri
+                <User className="w-5 h-5 text-[#1356e2]" /> Kelola Data &
+                Keamanan Santri
               </h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
@@ -2252,88 +2462,123 @@ export default function App() {
                     <tr className="bg-slate-50 text-slate-500 text-xs uppercase">
                       <th className="p-3 rounded-tl-xl">Foto</th>
                       <th className="p-3">Nama Santri</th>
-                      <th className="p-3">Link Foto (URL / Folder)</th>
+                      <th className="p-3">Link Foto</th>
+                      <th className="p-3">PIN Portal</th>
                       <th className="p-3 text-right rounded-tr-xl">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {santriList.map((s) => (
-                      <tr key={s.id} className="hover:bg-slate-50">
-                        <td className="p-3">
-                          <img
-                            src={s.photo}
-                            alt=""
-                            className="w-10 h-10 rounded-full object-cover border border-slate-200"
-                            onError={(e) => {
-                              e.target.src =
-                                "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80";
-                            }}
-                          />
-                        </td>
-                        <td className="p-3 font-bold text-slate-800">
-                          {s.name}{" "}
-                          <span className="block text-[10px] text-slate-400 font-normal">
-                            {s.class}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          {editPhotoId === s.id ? (
-                            <input
-                              type="text"
-                              value={editPhotoUrl}
-                              onChange={(e) => setEditPhotoUrl(e.target.value)}
-                              className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500"
-                              placeholder="/photos/nama.jpg atau https://..."
+                    {santriList.map((s) => {
+                      const displayPin = s.pin || s.nis;
+                      return (
+                        <tr key={s.id} className="hover:bg-slate-50">
+                          <td className="p-3">
+                            <img
+                              src={s.photo}
+                              alt=""
+                              className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                              onError={(e) => {
+                                e.target.src =
+                                  "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80";
+                              }}
                             />
-                          ) : (
-                            <span
-                              className="text-xs text-slate-500 truncate max-w-[200px] block"
-                              title={s.photo}
-                            >
-                              {s.photo}
+                          </td>
+                          <td className="p-3 font-bold text-slate-800">
+                            {s.name}{" "}
+                            <span className="block text-[10px] text-slate-400 font-normal">
+                              {s.class}
                             </span>
-                          )}
-                        </td>
-                        <td className="p-3 text-right">
-                          {editPhotoId === s.id ? (
-                            <div className="flex justify-end gap-2">
-                              <button
-                                onClick={() => savePhotoUpdate(s.id)}
-                                className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600"
+                          </td>
+
+                          {/* Edit Mode vs View Mode */}
+                          <td className="p-3">
+                            {editSantriId === s.id ? (
+                              <input
+                                type="text"
+                                value={editForm.photo}
+                                onChange={(e) =>
+                                  setEditForm({
+                                    ...editForm,
+                                    photo: e.target.value,
+                                  })
+                                }
+                                className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500"
+                                placeholder="/photos/nama.jpg"
+                              />
+                            ) : (
+                              <span
+                                className="text-xs text-slate-500 truncate max-w-[150px] block"
+                                title={s.photo}
                               >
-                                Simpan
-                              </button>
-                              <button
-                                onClick={() => setEditPhotoId(null)}
-                                className="px-3 py-1.5 bg-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-300"
-                              >
-                                Batal
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex justify-end gap-2">
-                              <button
-                                onClick={() => {
-                                  setEditPhotoId(s.id);
-                                  setEditPhotoUrl(s.photo);
-                                }}
-                                className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
-                                title="Edit Foto"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => deleteSantri(s.id)}
-                                className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"
-                                title="Hapus Santri"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                                {s.photo}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            {editSantriId === s.id ? (
+                              <input
+                                type="text"
+                                value={editForm.pin}
+                                onChange={(e) =>
+                                  setEditForm({
+                                    ...editForm,
+                                    pin: e.target.value,
+                                  })
+                                }
+                                className="w-full px-3 py-1.5 text-xs font-mono rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500"
+                                placeholder="Ketik PIN Baru"
+                              />
+                            ) : (
+                              <span className="text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                                {displayPin}
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="p-3 text-right">
+                            {editSantriId === s.id ? (
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={() => saveSantriDataUpdate(s.id)}
+                                  className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600"
+                                >
+                                  Simpan
+                                </button>
+                                <button
+                                  onClick={() => setEditSantriId(null)}
+                                  className="px-3 py-1.5 bg-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-300"
+                                >
+                                  Batal
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={() => {
+                                    setEditSantriId(s.id);
+                                    setEditForm({
+                                      photo: s.photo,
+                                      pin: displayPin,
+                                    });
+                                  }}
+                                  className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
+                                  title="Edit Data"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => deleteSantri(s.id)}
+                                  className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"
+                                  title="Hapus Santri"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -2386,6 +2631,74 @@ export default function App() {
                 Tutup
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL POP-UP PRESTASI ADMIN */}
+      {selectedAch && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl relative">
+            <button
+              onClick={() => setSelectedAch(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center">
+              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl mx-auto flex items-center justify-center mb-3">
+                <Award className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 leading-tight">
+                {selectedAch.title}
+              </h3>
+              <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold bg-[#f0b732] text-white uppercase tracking-wide">
+                {selectedAch.rank}
+              </span>
+            </div>
+
+            <div className="space-y-3 text-sm border-t border-b border-slate-100 py-4">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Tingkat:</span>{" "}
+                <span className="font-bold text-slate-800">
+                  {selectedAch.level}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Penyelenggara:</span>{" "}
+                <span className="font-bold text-slate-800 text-right">
+                  {selectedAch.organizer}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Tanggal:</span>{" "}
+                <span className="font-bold text-slate-800">
+                  {selectedAch.date}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Kategori:</span>{" "}
+                <span className="font-bold text-slate-800">
+                  {selectedAch.type}
+                </span>
+              </div>
+            </div>
+
+            {selectedAch.documentUrl ? (
+              <a
+                href={selectedAch.documentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3.5 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white font-bold rounded-xl shadow-sm transition-all flex justify-center items-center gap-2"
+              >
+                <FileText className="w-4 h-4" /> Buka Lampiran Dokumen/Foto
+              </a>
+            ) : (
+              <div className="w-full py-3 text-center bg-slate-50 border border-slate-100 rounded-xl text-slate-400 text-xs italic">
+                Tidak ada lampiran dokumen/foto.
+              </div>
+            )}
           </div>
         </div>
       )}
