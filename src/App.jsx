@@ -608,7 +608,6 @@ export default function App() {
     setModalWA({ open: true, santriName: santri.name, text: message });
   };
 
-  // Fungsi generate WA Grup (Hanya share link KATALOG)
   const openWAGroupModal = () => {
     let text = `Bismillah, Assalamu'alaikum Ummu.\n\nAlhamdulillah, data mutabaah dan laporan pekanan ananda sudah selesai kami perbarui. Ummu dapat memantau perkembangan ibadah, kedisiplinan, serta portofolio ananda melalui tautan (link) khusus di bawah ini:\n\n`;
     text += `👉 https://${window.location.host}/#/katalog\n\n`;
@@ -850,8 +849,8 @@ export default function App() {
     const santri =
       santriList.find((s) => s.id === publicSantriId) || INITIAL_SANTRI[0];
 
-    // RENDER LOCK SCREEN JIKA BELUM AUTH
-    if (!isPortalAuth) {
+    // RENDER LOCK SCREEN JIKA BELUM AUTH DAN BUKAN ADMIN (Bypass Admin)
+    if (!isPortalAuth && !isAdmin) {
       return (
         <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl text-center border border-slate-200">
@@ -910,7 +909,7 @@ export default function App() {
       );
     }
 
-    // RENDER PORTAL UTAMA JIKA SUDAH AUTH
+    // RENDER PORTAL UTAMA JIKA SUDAH AUTH / ATAU ADMIN
     const santriAch = achievements.filter((a) =>
       a.santriIds.includes(santri.id),
     );
@@ -919,23 +918,33 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8">
         <div className="max-w-4xl mx-auto space-y-6">
-          {/* HEADER NAVIGASI PORTAL */}
           <div className="flex justify-between items-center">
-            <a
-              href="#/katalog"
-              className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-[#1356e2] transition-colors bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm"
-            >
-              <ChevronLeft className="w-4 h-4" /> Kembali ke Katalog
-            </a>
-            <button
-              onClick={handlePortalLogout}
-              className="flex items-center gap-2 text-xs font-bold text-red-500 bg-white shadow-sm px-3 py-2 rounded-lg border border-red-100 hover:bg-red-50 transition-all"
-            >
-              <LogOut className="w-4 h-4" /> Kunci Layar
-            </button>
+            {isAdmin ? (
+              <a
+                href="#/"
+                className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-[#1356e2] transition-colors bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm"
+              >
+                <ChevronLeft className="w-4 h-4" /> Kembali ke Admin
+              </a>
+            ) : (
+              <a
+                href="#/katalog"
+                className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-[#1356e2] transition-colors bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm"
+              >
+                <ChevronLeft className="w-4 h-4" /> Kembali ke Katalog
+              </a>
+            )}
+
+            {!isAdmin && (
+              <button
+                onClick={handlePortalLogout}
+                className="flex items-center gap-2 text-xs font-bold text-red-500 bg-white shadow-sm px-3 py-2 rounded-lg border border-red-100 hover:bg-red-50 transition-all"
+              >
+                <LogOut className="w-4 h-4" /> Kunci Layar
+              </button>
+            )}
           </div>
 
-          {/* HEADER CARD SANTRI */}
           <div className="p-6 rounded-3xl bg-gradient-to-r from-[#1356e2] to-[#d38cf6] text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-5">
               <div className="w-24 h-32 rounded-2xl bg-white/20 border-2 border-white/40 overflow-hidden flex items-center justify-center shadow-inner">
@@ -982,7 +991,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* DETAIL CEKLIS HARIAN */}
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-2">
@@ -1069,7 +1077,6 @@ export default function App() {
             )}
           </div>
 
-          {/* REKAP PEKAN INI */}
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
             <div className="flex items-center gap-2 mb-4">
               <CalendarDays className="w-5 h-5 text-[#1356e2]" />
@@ -1396,7 +1403,6 @@ export default function App() {
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm print:hidden">
               <div className="flex flex-wrap items-center gap-6">
-                {/* KALENDER */}
                 <div className="flex items-center gap-3">
                   <label className="relative cursor-pointer flex items-center justify-center w-10 h-10 bg-blue-50 text-[#1356e2] rounded-xl hover:bg-blue-100 transition-colors">
                     <Calendar className="w-5 h-5 pointer-events-none" />
@@ -1417,7 +1423,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* TOGGLE HARIAN/PEKANAN */}
                 <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
                   <button
                     onClick={() => setViewMode("harian")}
@@ -1434,7 +1439,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ACTION BUTTONS */}
               <div className="flex items-center gap-2">
                 {viewMode === "harian" && (
                   <>
@@ -1676,8 +1680,9 @@ export default function App() {
           </div>
         )}
 
+        {/* TAB PROFIL & CARD SANTRI TERBARU */}
         {activeTab === "profil" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredSantri.map((s) => {
               const score = calculateScore(s.id);
               const santriAch = achievements.filter((a) =>
@@ -1688,8 +1693,9 @@ export default function App() {
               return (
                 <div
                   key={s.id}
-                  className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-all flex flex-col h-[380px]"
+                  className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-all flex flex-col h-auto min-h-[460px]"
                 >
+                  {/* Foto & Identitas */}
                   <div className="flex flex-col items-center text-center pb-3 border-b border-slate-100">
                     <div className="w-16 h-16 rounded-full bg-slate-100 border-2 border-slate-200 overflow-hidden mb-2">
                       <img
@@ -1705,58 +1711,101 @@ export default function App() {
                     <h4 className="font-black text-slate-800 text-sm leading-tight line-clamp-2">
                       {s.name}
                     </h4>
-                    <p className="text-[10px] text-slate-400 mt-1">{s.class}</p>
+                    <p className="text-[10px] font-bold text-white bg-blue-600 px-2 py-0.5 rounded-full mt-1.5 mb-1">
+                      {s.class}
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-medium tracking-wide">
+                      NIS: {s.nis} | NISN: {s.nisn}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{s.ttl}</p>
                   </div>
 
-                  <div className="py-3 flex-shrink-0">
-                    <div className="flex justify-between items-center text-[10px] mb-1">
-                      <span className="font-semibold text-slate-500">
-                        Kewajiban
-                      </span>
-                      <span className="font-black text-blue-600">
-                        {score.percent}%
-                      </span>
+                  {/* Indikator Ceklis Detail (Hari Ini) */}
+                  <div className="py-3 flex flex-col gap-2 border-b border-slate-100 shrink-0">
+                    {/* Wajib */}
+                    <div className="flex flex-wrap gap-1.5 justify-center">
+                      {categories
+                        .filter((c) => c.type === "wajib")
+                        .map((c) => {
+                          const isChecked =
+                            records[`${selectedDate}_${s.id}_${c.id}`];
+                          const isHaid =
+                            !!haidStatus[`${selectedDate}_${s.id}`];
+                          const isRestricted =
+                            isHaid &&
+                            (c.name.includes("Sholat") ||
+                              c.name.includes("Puasa"));
+
+                          let badgeClass = isChecked
+                            ? "bg-blue-100 text-blue-700 font-bold border border-blue-200"
+                            : "bg-slate-100 text-slate-400 font-medium border border-slate-200";
+                          if (isRestricted)
+                            badgeClass =
+                              "bg-pink-50 text-pink-600 font-bold border border-pink-200";
+
+                          return (
+                            <span
+                              key={c.id}
+                              className={`text-[9px] px-1.5 py-0.5 rounded shadow-sm ${badgeClass}`}
+                            >
+                              {c.name}
+                            </span>
+                          );
+                        })}
                     </div>
-                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                      <div
-                        className="bg-blue-500 h-full rounded-full"
-                        style={{ width: `${score.percent}%` }}
-                      ></div>
-                    </div>
-                    <div className="flex justify-between items-center text-[10px] mt-2">
-                      <span className="font-semibold text-slate-500">
-                        Ibadah Sunnah
-                      </span>
-                      <div className="font-bold text-emerald-600">
-                        {score.stars} / {score.sunnahTotal} Tuntas
-                      </div>
+                    {/* Sunnah */}
+                    <div className="flex flex-wrap gap-1.5 justify-center mt-1">
+                      {categories
+                        .filter((c) => c.type === "sunnah")
+                        .map((c) => {
+                          const isChecked =
+                            records[`${selectedDate}_${s.id}_${c.id}`];
+                          return (
+                            <span
+                              key={c.id}
+                              className={`text-[9px] px-1.5 py-0.5 rounded shadow-sm flex items-center gap-1 border ${isChecked ? "bg-emerald-50 text-emerald-700 font-bold border-emerald-200" : "bg-slate-100 text-slate-400 font-medium border-slate-200"}`}
+                            >
+                              <Star
+                                className={`w-2.5 h-2.5 ${isChecked ? "fill-emerald-500 text-emerald-500" : "fill-slate-300 text-slate-300"}`}
+                              />{" "}
+                              {c.name}
+                            </span>
+                          );
+                        })}
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                  {/* List Portofolio */}
+                  <div className="flex-1 overflow-y-auto space-y-2 py-3 pr-1 custom-scrollbar">
                     {santriAch.length > 0 && (
-                      <div className="bg-blue-50/50 p-2 rounded-xl border border-blue-100">
-                        <p className="text-[9px] font-bold text-blue-800 uppercase mb-1 flex items-center gap-1">
-                          <Award className="w-3 h-3" /> Prestasi
+                      <div className="bg-blue-50/50 p-2.5 rounded-xl border border-blue-100">
+                        <p className="text-[10px] font-bold text-blue-800 uppercase mb-1.5 flex items-center gap-1">
+                          <Award className="w-3.5 h-3.5" /> Prestasi
                         </p>
-                        <ul className="text-[10px] text-slate-600 space-y-1 list-disc pl-3">
+                        <ul className="text-[10px] text-slate-600 space-y-1.5 list-disc pl-3">
                           {santriAch.map((a) => (
                             <li key={a.id}>
-                              {a.title} ({a.rank})
+                              <span className="font-semibold text-slate-700">
+                                {a.title}
+                              </span>{" "}
+                              ({a.rank})
                             </li>
                           ))}
                         </ul>
                       </div>
                     )}
                     {santriVio.length > 0 && (
-                      <div className="bg-amber-50/50 p-2 rounded-xl border border-amber-100">
-                        <p className="text-[9px] font-bold text-amber-800 uppercase mb-1 flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3" /> Pelanggaran
+                      <div className="bg-amber-50/50 p-2.5 rounded-xl border border-amber-100">
+                        <p className="text-[10px] font-bold text-amber-800 uppercase mb-1.5 flex items-center gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5" /> Kedisiplinan
                         </p>
-                        <ul className="text-[10px] text-slate-600 space-y-1 list-disc pl-3">
+                        <ul className="text-[10px] text-slate-600 space-y-1.5 list-disc pl-3">
                           {santriVio.map((v) => (
                             <li key={v.id}>
-                              {v.description} - <i>{v.sanction}</i>
+                              <span className="font-semibold text-slate-700">
+                                {v.description}
+                              </span>{" "}
+                              - <i>{v.sanction}</i>
                             </li>
                           ))}
                         </ul>
@@ -1765,11 +1814,20 @@ export default function App() {
                     {santriAch.length === 0 && santriVio.length === 0 && (
                       <div className="h-full flex items-center justify-center">
                         <p className="text-[10px] text-slate-400 italic text-center">
-                          Belum ada portofolio tercatat.
+                          Belum ada data portofolio tercatat.
                         </p>
                       </div>
                     )}
                   </div>
+
+                  {/* Tombol Akses Cepat */}
+                  <a
+                    href={`#/view/${s.id}`}
+                    className="mt-3 w-full py-2.5 bg-slate-50 text-[#1356e2] hover:bg-[#1356e2] hover:text-white text-xs font-bold rounded-xl text-center flex items-center justify-center gap-1 transition-all border border-blue-100 shadow-sm"
+                  >
+                    Lihat Portofolio Lengkap{" "}
+                    <ChevronRight className="w-4 h-4" />
+                  </a>
                 </div>
               );
             })}
