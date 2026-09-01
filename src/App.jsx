@@ -23,6 +23,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Lock,
+  Users,
 } from "lucide-react";
 import { db } from "./firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
@@ -338,7 +339,10 @@ export default function App() {
     text: "",
   });
   const [copied, setCopied] = useState(false);
+
+  // Navigation States
   const [publicSantriId, setPublicSantriId] = useState(null);
+  const [showKatalog, setShowKatalog] = useState(false);
 
   const [formSantri, setFormSantri] = useState({
     name: "",
@@ -379,12 +383,17 @@ export default function App() {
       if (hash.startsWith("#/view/")) {
         const sid = hash.replace("#/view/", "");
         setPublicSantriId(sid);
+        setShowKatalog(false);
         if (localStorage.getItem(`auth_santri_${sid}`) === "true") {
           setIsPortalAuth(true);
         } else {
           setIsPortalAuth(false);
         }
+      } else if (hash === "#/katalog") {
+        setShowKatalog(true);
+        setPublicSantriId(null);
       } else {
+        setShowKatalog(false);
         setPublicSantriId(null);
       }
     };
@@ -599,17 +608,17 @@ export default function App() {
     setModalWA({ open: true, santriName: santri.name, text: message });
   };
 
-  // Fungsi generate WA Grup (Baru)
+  // Fungsi generate WA Grup (Hanya share link KATALOG)
   const openWAGroupModal = () => {
-    let text = `Bismillah, Assalamu'alaikum Ummu.\n\nAlhamdulillah, data mutabaah dan laporan pekanan ananda sudah selesai. Ummu dapat mengunjungi portofolio ananda melalui tautan di bawah ini:\n\n`;
+    let text = `Bismillah, Assalamu'alaikum Ummu.\n\nAlhamdulillah, data mutabaah dan laporan pekanan ananda sudah selesai kami perbarui. Ummu dapat memantau perkembangan ibadah, kedisiplinan, serta portofolio ananda melalui tautan (link) khusus di bawah ini:\n\n`;
+    text += `👉 https://${window.location.host}/#/katalog\n\n`;
+    text += `Silakan klik tautan tersebut, cari nama ananda, lalu gunakan *Nomor Induk Santri (NIS)* ananda sebagai PIN rahasia untuk membuka gembok portofolio.\n\nJazakunnallahu khairan atas kerja sama Ummu dalam memantau perkembangan ananda. Semoga ananda senantiasa diberikan keistiqamahan.\nBarakallahu fiikum.`;
 
-    filteredSantri.forEach((s, idx) => {
-      text += `${idx + 1}. Ananda *${s.name}*\n   Akses di: https://${window.location.host}/#/view/${s.id}\n\n`;
+    setModalWA({
+      open: true,
+      santriName: `Broadcast Grup ${selectedClass}`,
+      text: text,
     });
-
-    text += `Catatan: Gunakan Nomor Induk Santri (NIS) ananda sebagai PIN untuk membuka gembok portofolio.\n\nJazakunnallahu khairan atas kerja sama Ummu dalam memantau perkembangan ananda. Semoga ananda senantiasa diberikan keistiqamahan.\nBarakallahu fiikum.`;
-
-    setModalWA({ open: true, santriName: `Grup ${selectedClass}`, text: text });
   };
 
   const copyToClipboard = () => {
@@ -778,7 +787,65 @@ export default function App() {
     return days;
   }, [selectedDate]);
 
-  // ---- RENDER PORTAL WALI SANTRI ----
+  // ---- RENDER KATALOG SANTRI (PUBLIC INDEX) ----
+  if (showKatalog) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8">
+        <div className="max-w-5xl mx-auto space-y-6">
+          <div className="text-center space-y-3 mb-10 pt-4">
+            <div className="w-16 h-16 bg-gradient-to-tr from-[#1356e2] to-[#d38cf6] rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-blue-500/30 mb-4">
+              <Users className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-3xl font-black text-slate-800">
+              Katalog Wali Santri
+            </h1>
+            <p className="text-slate-500 font-medium max-w-lg mx-auto">
+              Silakan cari dan klik nama ananda untuk melihat rincian laporan
+              mutabaah harian & pekanan.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {santriList.map((s) => (
+              <a
+                key={s.id}
+                href={`#/view/${s.id}`}
+                className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:border-blue-300 transition-all flex flex-col items-center text-center group cursor-pointer"
+              >
+                <div className="w-20 h-20 rounded-full bg-slate-100 border-4 border-slate-50 overflow-hidden mb-3 group-hover:border-blue-100 transition-colors shadow-sm">
+                  <img
+                    src={s.photo}
+                    alt={s.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.src =
+                        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80";
+                    }}
+                  />
+                </div>
+                <h4 className="font-bold text-slate-800 text-sm leading-tight line-clamp-2 group-hover:text-[#1356e2] transition-colors">
+                  {s.name}
+                </h4>
+                <span className="mt-2 text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
+                  {s.class}
+                </span>
+              </a>
+            ))}
+          </div>
+          <div className="text-center pt-8">
+            <a
+              href="#/"
+              className="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors"
+            >
+              Admin Login
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- RENDER PORTAL WALI SANTRI (INDIVIDU) ----
   if (publicSantriId) {
     const santri =
       santriList.find((s) => s.id === publicSantriId) || INITIAL_SANTRI[0];
@@ -788,6 +855,12 @@ export default function App() {
       return (
         <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl text-center border border-slate-200">
+            <a
+              href="#/katalog"
+              className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-[#1356e2] transition-colors mb-6 uppercase tracking-wider"
+            >
+              <ChevronLeft className="w-3 h-3" /> Kembali ke Katalog
+            </a>
             <div className="w-24 h-24 mx-auto bg-slate-50 rounded-full overflow-hidden border-4 border-slate-200 shadow-inner mb-4 flex items-center justify-center">
               <img
                 src={santri.photo}
@@ -846,17 +919,23 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8">
         <div className="max-w-4xl mx-auto space-y-6">
-          {/* TOMBOL LOGOUT PORTAL */}
-          <div className="flex justify-end">
+          {/* HEADER NAVIGASI PORTAL */}
+          <div className="flex justify-between items-center">
+            <a
+              href="#/katalog"
+              className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-[#1356e2] transition-colors bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm"
+            >
+              <ChevronLeft className="w-4 h-4" /> Kembali ke Katalog
+            </a>
             <button
               onClick={handlePortalLogout}
-              className="flex items-center gap-2 text-xs font-bold text-red-500 bg-white shadow-sm px-4 py-2 rounded-xl border border-red-100 hover:bg-red-50 transition-all"
+              className="flex items-center gap-2 text-xs font-bold text-red-500 bg-white shadow-sm px-3 py-2 rounded-lg border border-red-100 hover:bg-red-50 transition-all"
             >
-              <LogOut className="w-4 h-4" /> Kunci Layar (Keluar)
+              <LogOut className="w-4 h-4" /> Kunci Layar
             </button>
           </div>
 
-          {/* HEADER PORTAL */}
+          {/* HEADER CARD SANTRI */}
           <div className="p-6 rounded-3xl bg-gradient-to-r from-[#1356e2] to-[#d38cf6] text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-5">
               <div className="w-24 h-32 rounded-2xl bg-white/20 border-2 border-white/40 overflow-hidden flex items-center justify-center shadow-inner">
@@ -872,7 +951,7 @@ export default function App() {
               </div>
               <div>
                 <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-semibold tracking-wide uppercase flex items-center w-max gap-1">
-                  <User className="w-3 h-3" /> Portal Wali Santri
+                  <User className="w-3 h-3" /> Portofolio Ananda
                 </span>
                 <h1 className="text-2xl md:text-3xl font-black mt-2">
                   {santri.name}
@@ -1173,7 +1252,7 @@ export default function App() {
   // ---- RENDER HALAMAN LOGIN ADMIN ----
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 flex flex-col items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl space-y-6">
           <div className="text-center space-y-2">
             <div className="w-16 h-16 bg-gradient-to-tr from-[#1356e2] to-[#d38cf6] rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-blue-500/30">
@@ -1212,6 +1291,12 @@ export default function App() {
             </button>
           </form>
         </div>
+        <a
+          href="#/katalog"
+          className="mt-8 text-sm font-bold text-white/80 hover:text-white transition-colors bg-white/10 px-6 py-3 rounded-xl backdrop-blur-md"
+        >
+          Masuk sebagai Wali Santri? Klik di sini
+        </a>
       </div>
     );
   }
@@ -1332,7 +1417,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* TOGGLE HARIAN/PEKANAN (Dipindah ke samping kalender) */}
+                {/* TOGGLE HARIAN/PEKANAN */}
                 <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
                   <button
                     onClick={() => setViewMode("harian")}
