@@ -372,7 +372,6 @@ export default function App() {
   });
   const [copied, setCopied] = useState(false);
 
-  // Navigation States
   const [publicSantriId, setPublicSantriId] = useState(null);
   const [showKatalog, setShowKatalog] = useState(false);
 
@@ -404,14 +403,11 @@ export default function App() {
     date: "",
   });
 
-  // Edit Data Santri State
   const [editSantriId, setEditSantriId] = useState(null);
   const [editForm, setEditForm] = useState({ photo: "", pin: "" });
 
-  // Pop-up Prestasi State
   const [selectedAch, setSelectedAch] = useState(null);
 
-  // Keypass State
   const [isPortalAuth, setIsPortalAuth] = useState(false);
   const [portalPin, setPortalPin] = useState("");
   const [portalError, setPortalError] = useState(false);
@@ -586,10 +582,14 @@ export default function App() {
   const handleAutoCheckAll = () => {
     const updated = { ...records };
     filteredSantri.forEach((s) => {
-      categories.forEach((c) => {
-        const key = `${selectedDate}_${s.id}_${c.id}`;
-        updated[key] = true;
-      });
+      // Hanya auto-ceklis jika status kehadiran Hadir (H)
+      const att = attendance[`${selectedDate}_${s.id}`] || "H";
+      if (att === "H") {
+        categories.forEach((c) => {
+          const key = `${selectedDate}_${s.id}_${c.id}`;
+          updated[key] = true;
+        });
+      }
     });
     setRecords(updated);
     saveToFirebase("records", updated);
@@ -614,22 +614,67 @@ export default function App() {
     saveToFirebase("notes", updated);
   };
 
+  // LOGIKA SKOR BARU (Sakit 100%, Izin/Alpha 0%)
+  const calculateScore = (santriId, targetDate = selectedDate) => {
+    const att = attendance[`${targetDate}_${santriId}`] || "H";
+    const isHaid = !!haidStatus[`${targetDate}_${santriId}`];
+    const wajibCats = categories.filter((c) => c.type === "wajib");
+    const sunnahCats = categories.filter((c) => c.type === "sunnah");
+
+    let completedWajib = 0;
+    let stars = 0;
+
+    if (att === "I" || att === "A") {
+      // Izin atau Alpha: Nilai 0 mutlak
+      completedWajib = 0;
+      stars = 0;
+    } else if (att === "S") {
+      // Sakit: Wajib diberi udzur (100%), Sunnah 0
+      completedWajib = wajibCats.length;
+      stars = 0;
+    } else {
+      // Hadir (H)
+      wajibCats.forEach((c) => {
+        if (isHaid && (c.name.includes("Sholat") || c.name.includes("Puasa"))) {
+          completedWajib += 1;
+        } else if (records[`${targetDate}_${santriId}_${c.id}`]) {
+          completedWajib += 1;
+        }
+      });
+      sunnahCats.forEach((c) => {
+        if (records[`${targetDate}_${santriId}_${c.id}`]) stars += 1;
+      });
+    }
+
+    const percent = wajibCats.length
+      ? Math.round((completedWajib / wajibCats.length) * 100)
+      : 0;
+    return { percent, stars, isHaid, sunnahTotal: sunnahCats.length };
+  };
+
   const openWAModal = (santri) => {
     const isHaid = !!haidStatus[`${selectedDate}_${santri.id}`];
     const attCode = attendance[`${selectedDate}_${santri.id}`] || "H";
     const note =
       notes[`${selectedDate}_${santri.id}`] ||
-      "Alhamdulillah tidak ada catatan";
+      "Alhamdulillah tidak ada catatan khusus hari ini.";
 
     let summaryList = categories
       .map((c) => {
-        const isRestricted =
-          isHaid && (c.name.includes("Sholat") || c.name.includes("Puasa"));
-        const isChecked = isRestricted
-          ? "Udzur Syar'i (Haid)"
-          : records[`${selectedDate}_${santri.id}_${c.id}`]
-            ? "Terlaksana"
-            : "Belum";
+        let isChecked = "";
+        if (attCode === "I" || attCode === "A") {
+          isChecked = "-"; // Kosong jika Izin/Alpha
+        } else if (attCode === "S") {
+          isChecked = c.type === "wajib" ? "Udzur (Sakit)" : "-";
+        } else {
+          const isRestricted =
+            isHaid && (c.name.includes("Sholat") || c.name.includes("Puasa"));
+          isChecked = isRestricted
+            ? "Udzur Syar'i (Haid)"
+            : records[`${selectedDate}_${santri.id}_${c.id}`]
+              ? "Terlaksana"
+              : "Belum";
+        }
         return `• ${c.name}: ${isChecked}`;
       })
       .join("\n");
@@ -648,13 +693,13 @@ export default function App() {
     setModalWA({ open: true, santriName: santri.name, text: message });
   };
 
-  // GENERATOR LAPORAN HARIAN GRUP WA SESUAI PERMINTAAN BARU
+  // GENERATOR WA GRUP BARU (Sesuai Permintaan User Terakhir)
   const openWAGroupModal = () => {
     const rombelName =
       selectedClass === "Semua" ? "SEMUA KELAS" : selectedClass;
     const tanggalFormatted = getFormattedDate(selectedDate);
 
-    // 1. Tidak hadir (selain 'H')
+    // 1. Tidak Hadir (Hanya yang statusnya I, S, A)
     const absensiList = filteredSantri
       .filter((s) => {
         const att = attendance[`${selectedDate}_${s.id}`] || "H";
@@ -667,7 +712,8 @@ export default function App() {
     const tidakHadirText =
       absensiList.length > 0 ? absensiList.join("\n") : "- Nihil (Semua Hadir)";
 
-    // Helper untuk cek ketidakterlaksanaan kegiatan (Kecuali yang sedang Haid untuk ibadah terkait)
+    // Helper: Mendapatkan daftar santri yang gagal di kategori tertentu
+    // Syarat: Dia Hadir (H), dan jika kategori sholat/puasa, dia tidak sedang Haid.
     const getGagalList = (catKeyword) => {
       const cat = categories.find((c) =>
         c.name.toLowerCase().includes(catKeyword.toLowerCase()),
@@ -676,74 +722,76 @@ export default function App() {
 
       const list = filteredSantri
         .filter((s) => {
+          const att = attendance[`${selectedDate}_${s.id}`] || "H";
+          if (att !== "H") return false; // Abaikan jika sakit/izin/alpha
+
           const isHaid = !!haidStatus[`${selectedDate}_${s.id}`];
           if (
             isHaid &&
             (cat.name.includes("Sholat") || cat.name.includes("Puasa"))
           )
-            return false; // Abaikan yang haid
+            return false;
+
           const isChecked = !!records[`${selectedDate}_${s.id}_${cat.id}`];
-          return !isChecked;
+          return !isChecked; // Masuk daftar jika TIDAK terceklis
         })
         .map((s) => `- ${s.name}`);
 
-      return list.length > 0 ? list.join("\n") : "- Nihil (Semua Tuntas)";
+      return list.length > 0 ? list.join("\n") : "- Nihil";
     };
 
-    // 2. Tidak berseragam
     const tidakBerseragam = getGagalList("seragam");
-
-    // 3. Tidak Makan siang
     const tidakMakanSiang = getGagalList("makan siang");
-
-    // 4. Tidak Sholat Dzuhur
     const tidakDzuhur = getGagalList("dzuhur");
-
-    // 5. Tidak Sholat Ashar
     const tidakAshar = getGagalList("ashar");
 
-    // 6. Sholat Dhuha
+    // Sholat Dhuha (Mendata yang CEKLIS saja)
     const dhuhaCat = categories.find((c) =>
       c.name.toLowerCase().includes("dhuha"),
     );
     let dhuhaText = "- Nihil";
     if (dhuhaCat) {
-      const dhuhaSantri = filteredSantri.filter(
+      // Ambil total santri yang Hadir
+      const presentSantri = filteredSantri.filter(
+        (s) => (attendance[`${selectedDate}_${s.id}`] || "H") === "H",
+      );
+      // Hitung dari yang hadir, siapa yang sholat Dhuha
+      const dhuhaSantri = presentSantri.filter(
         (s) => records[`${selectedDate}_${s.id}_${dhuhaCat.id}`],
       );
+
       if (
-        dhuhaSantri.length === filteredSantri.length &&
-        filteredSantri.length > 0
+        dhuhaSantri.length === presentSantri.length &&
+        presentSantri.length > 0
       ) {
         dhuhaText = "Alhamdulillah hari ini seluruh santri sholat dhuha";
       } else if (dhuhaSantri.length > 0) {
         dhuhaText = dhuhaSantri.map((s) => `- ${s.name}`).join("\n");
-      } else {
-        dhuhaText = "- Belum ada data";
       }
     }
 
-    // 7. Puasa sunnah
+    // Puasa Sunnah (Mendata yang CEKLIS saja)
     const puasaCat = categories.find((c) =>
       c.name.toLowerCase().includes("puasa"),
     );
     let puasaText = "- Nihil";
     if (puasaCat) {
-      const puasaSantri = filteredSantri.filter(
-        (s) => records[`${selectedDate}_${s.id}_${puasaCat.id}`],
-      );
+      const puasaSantri = filteredSantri.filter((s) => {
+        const att = attendance[`${selectedDate}_${s.id}`] || "H";
+        if (att !== "H") return false;
+        return records[`${selectedDate}_${s.id}_${puasaCat.id}`];
+      });
       if (puasaSantri.length > 0) {
         puasaText = puasaSantri.map((s) => `- ${s.name}`).join("\n");
       }
     }
 
-    // 8. Haidh
+    // Haidh
     const haidList = filteredSantri
       .filter((s) => !!haidStatus[`${selectedDate}_${s.id}`])
       .map((s) => `- ${s.name}`);
     const haidText = haidList.length > 0 ? haidList.join("\n") : "- Nihil";
 
-    // Susun template akhir
     const groupMessage =
       `LAPORAN HARIAN - ${rombelName}\n` +
       `${tanggalFormatted}\n\n` +
@@ -879,32 +927,6 @@ export default function App() {
       setSantriList(updated);
       saveToFirebase("santri", updated);
     }
-  };
-
-  const calculateScore = (santriId, targetDate = selectedDate) => {
-    const isHaid = !!haidStatus[`${targetDate}_${santriId}`];
-    const wajibCats = categories.filter((c) => c.type === "wajib");
-    let completedWajib = 0;
-
-    wajibCats.forEach((c) => {
-      if (isHaid && (c.name.includes("Sholat") || c.name.includes("Puasa"))) {
-        completedWajib += 1;
-      } else if (records[`${targetDate}_${santriId}_${c.id}`]) {
-        completedWajib += 1;
-      }
-    });
-
-    const percent = wajibCats.length
-      ? Math.round((completedWajib / wajibCats.length) * 100)
-      : 0;
-
-    let stars = 0;
-    const sunnahCats = categories.filter((c) => c.type === "sunnah");
-    sunnahCats.forEach((c) => {
-      if (records[`${targetDate}_${santriId}_${c.id}`]) stars += 1;
-    });
-
-    return { percent, stars, isHaid, sunnahTotal: sunnahCats.length };
   };
 
   const weekData = useMemo(() => {
@@ -1180,7 +1202,7 @@ export default function App() {
               <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 flex items-center gap-2">
                 Status Kehadiran:
                 <span
-                  className={`px-2 py-0.5 rounded ${attendance[`${selectedDate}_${santri.id}`] === "I" ? "bg-amber-100 text-amber-700" : attendance[`${selectedDate}_${santri.id}`] === "S" ? "bg-amber-100 text-amber-700" : attendance[`${selectedDate}_${santri.id}`] === "A" ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}
+                  className={`px-2 py-0.5 rounded ${attendance[`${selectedDate}_${santri.id}`] === "I" || attendance[`${selectedDate}_${santri.id}`] === "S" ? "bg-amber-100 text-amber-700" : attendance[`${selectedDate}_${santri.id}`] === "A" ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}
                 >
                   {getKehadiranText(
                     attendance[`${selectedDate}_${santri.id}`] || "H",
@@ -1201,6 +1223,8 @@ export default function App() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {categories.map((c) => {
+                const attCode =
+                  attendance[`${selectedDate}_${santri.id}`] || "H";
                 const isHaid = !!haidStatus[`${selectedDate}_${santri.id}`];
                 const isRestricted =
                   isHaid &&
@@ -1211,13 +1235,26 @@ export default function App() {
                 let statusText = "Belum Terlaksana";
                 let statusColor = "text-rose-600 bg-rose-50 border-rose-100";
 
-                if (isRestricted) {
-                  statusText = "Udzur Syar'i (Haid)";
-                  statusColor = "text-pink-600 bg-pink-50 border-pink-100";
-                } else if (isChecked) {
-                  statusText = "Terlaksana";
-                  statusColor =
-                    "text-emerald-600 bg-emerald-50 border-emerald-100";
+                if (attCode === "I" || attCode === "A") {
+                  statusText = "-";
+                  statusColor = "text-slate-500 bg-slate-50 border-slate-200";
+                } else if (attCode === "S") {
+                  if (c.type === "wajib") {
+                    statusText = "Udzur (Sakit)";
+                    statusColor = "text-amber-600 bg-amber-50 border-amber-100";
+                  } else {
+                    statusText = "-";
+                    statusColor = "text-slate-500 bg-slate-50 border-slate-200";
+                  }
+                } else {
+                  if (isRestricted) {
+                    statusText = "Udzur Syar'i (Haid)";
+                    statusColor = "text-pink-600 bg-pink-50 border-pink-100";
+                  } else if (isChecked) {
+                    statusText = "Terlaksana";
+                    statusColor =
+                      "text-emerald-600 bg-emerald-50 border-emerald-100";
+                  }
                 }
 
                 return (
@@ -1299,29 +1336,43 @@ export default function App() {
                     ).length;
 
                     const isHaid = !!haidStatus[`${d.dateString}_${santri.id}`];
+                    const attCode =
+                      attendance[`${d.dateString}_${santri.id}`] || "H";
+
                     let completedWajib = 0;
-                    categories
-                      .filter((c) => c.type === "wajib")
-                      .forEach((c) => {
-                        if (
-                          isHaid &&
-                          (c.name.includes("Sholat") ||
-                            c.name.includes("Puasa"))
-                        )
-                          completedWajib++;
-                        else if (
-                          records[`${d.dateString}_${santri.id}_${c.id}`]
-                        )
-                          completedWajib++;
-                      });
+                    if (attCode === "I" || attCode === "A") {
+                      completedWajib = 0;
+                    } else if (attCode === "S") {
+                      completedWajib = wajibCats;
+                    } else {
+                      categories
+                        .filter((c) => c.type === "wajib")
+                        .forEach((c) => {
+                          if (
+                            isHaid &&
+                            (c.name.includes("Sholat") ||
+                              c.name.includes("Puasa"))
+                          )
+                            completedWajib++;
+                          else if (
+                            records[`${d.dateString}_${santri.id}_${c.id}`]
+                          )
+                            completedWajib++;
+                        });
+                    }
 
                     return (
                       <tr key={d.dateString} className="hover:bg-slate-50">
                         <td className="py-3 px-2 font-semibold text-slate-700">
                           {d.dayName}, {d.label}
-                          {isHaid && (
+                          {isHaid && attCode === "H" && (
                             <span className="text-[10px] bg-pink-100 text-pink-600 px-1.5 py-0.5 rounded ml-2">
                               Udzur
+                            </span>
+                          )}
+                          {attCode !== "H" && (
+                            <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded ml-2">
+                              {getKehadiranText(attCode)}
                             </span>
                           )}
                         </td>
@@ -1668,9 +1719,9 @@ export default function App() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredSantri.map((s) => {
-                        const isHaid = !!haidStatus[`${selectedDate}_${s.id}`];
                         const att =
                           attendance[`${selectedDate}_${s.id}`] || "H";
+                        const isHaid = !!haidStatus[`${selectedDate}_${s.id}`];
                         const score = calculateScore(s.id);
                         return (
                           <tr
@@ -1721,20 +1772,41 @@ export default function App() {
                             {categories.map((c) => {
                               const checked =
                                 !!records[`${selectedDate}_${s.id}_${c.id}`];
-                              const isRestricted =
-                                isHaid &&
-                                (c.name.includes("Sholat") ||
-                                  c.name.includes("Puasa"));
-                              return (
-                                <td
-                                  key={c.id}
-                                  className="py-3 px-2 text-center"
-                                >
-                                  {isRestricted ? (
-                                    <span className="text-[10px] font-bold text-pink-400">
+                              let statusElement;
+
+                              if (att === "I" || att === "A") {
+                                statusElement = (
+                                  <span className="text-[10px] font-bold text-slate-400">
+                                    -
+                                  </span>
+                                );
+                              } else if (att === "S") {
+                                if (c.type === "wajib")
+                                  statusElement = (
+                                    <span className="text-[10px] font-bold text-amber-500 px-2 py-0.5 bg-amber-50 rounded border border-amber-100">
+                                      Udzur
+                                    </span>
+                                  );
+                                else
+                                  statusElement = (
+                                    <span className="text-[10px] font-bold text-slate-400">
                                       -
                                     </span>
-                                  ) : (
+                                  );
+                              } else {
+                                // Jika Hadir
+                                const isRestricted =
+                                  isHaid &&
+                                  (c.name.includes("Sholat") ||
+                                    c.name.includes("Puasa"));
+                                if (isRestricted) {
+                                  statusElement = (
+                                    <span className="text-[10px] font-bold text-pink-500 px-2 py-0.5 bg-pink-50 rounded border border-pink-100">
+                                      Udzur
+                                    </span>
+                                  );
+                                } else {
+                                  statusElement = (
                                     <input
                                       type="checkbox"
                                       checked={checked}
@@ -1745,7 +1817,16 @@ export default function App() {
                                           : "text-[#1356e2] focus:ring-blue-400"
                                       }`}
                                     />
-                                  )}
+                                  );
+                                }
+                              }
+
+                              return (
+                                <td
+                                  key={c.id}
+                                  className="py-3 px-2 text-center"
+                                >
+                                  {statusElement}
                                 </td>
                               );
                             })}
@@ -1861,7 +1942,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB PROFIL & CARD SANTRI (5 KOLOM + DATA DETAIL) */}
+        {/* TAB PROFIL & CARD SANTRI TERBARU (5 KOLOM + DATA DETAIL) */}
         {activeTab === "profil" && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {filteredSantri.map((s) => {
@@ -1890,6 +1971,7 @@ export default function App() {
                   key={s.id}
                   className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-all flex flex-col h-auto min-h-[500px]"
                 >
+                  {/* Foto & Identitas */}
                   <div className="flex flex-col items-center text-center pb-3 border-b border-slate-100">
                     <div className="w-16 h-16 rounded-full bg-slate-100 border-2 border-slate-200 overflow-hidden mb-2">
                       <img
@@ -1914,6 +1996,7 @@ export default function App() {
                     <p className="text-[10px] text-slate-400 mt-0.5">{s.ttl}</p>
                   </div>
 
+                  {/* Keterangan Harian & Catatan */}
                   <div className="py-3 flex flex-col border-b border-slate-100 shrink-0">
                     <div className="flex gap-2 text-[10px] mb-2 justify-center">
                       <span
@@ -1932,24 +2015,37 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* Indikator Ceklis Detail (Hari Ini) */}
                   <div className="py-3 flex flex-col gap-2 border-b border-slate-100 shrink-0">
+                    {/* Wajib */}
                     <div className="flex flex-wrap gap-1.5 justify-center">
                       {categories
                         .filter((c) => c.type === "wajib")
                         .map((c) => {
                           const isChecked =
                             records[`${selectedDate}_${s.id}_${c.id}`];
-                          const isRestricted =
+                          const isRestrictedHaid =
                             isHaid &&
                             (c.name.includes("Sholat") ||
                               c.name.includes("Puasa"));
 
-                          let badgeClass = isChecked
-                            ? "bg-blue-100 text-blue-700 font-bold border border-blue-200"
-                            : "bg-slate-100 text-slate-400 font-medium border border-slate-200";
-                          if (isRestricted)
+                          let badgeClass = "";
+                          if (attCode === "I" || attCode === "A") {
+                            badgeClass =
+                              "bg-slate-100 text-slate-400 font-medium border border-slate-200";
+                          } else if (attCode === "S") {
+                            badgeClass =
+                              "bg-amber-50 text-amber-600 font-bold border border-amber-200";
+                          } else if (isRestrictedHaid) {
                             badgeClass =
                               "bg-pink-50 text-pink-600 font-bold border border-pink-200";
+                          } else if (isChecked) {
+                            badgeClass =
+                              "bg-blue-100 text-blue-700 font-bold border border-blue-200";
+                          } else {
+                            badgeClass =
+                              "bg-slate-100 text-slate-400 font-medium border border-slate-200";
+                          }
 
                           return (
                             <span
@@ -1961,19 +2057,23 @@ export default function App() {
                           );
                         })}
                     </div>
+                    {/* Sunnah */}
                     <div className="flex flex-wrap gap-1.5 justify-center mt-1">
                       {categories
                         .filter((c) => c.type === "sunnah")
                         .map((c) => {
                           const isChecked =
                             records[`${selectedDate}_${s.id}_${c.id}`];
+                          const isAvailable = attCode === "H";
+                          const showCheck = isAvailable && isChecked;
+
                           return (
                             <span
                               key={c.id}
-                              className={`text-[9px] px-1.5 py-0.5 rounded shadow-sm flex items-center gap-1 border ${isChecked ? "bg-emerald-50 text-emerald-700 font-bold border-emerald-200" : "bg-slate-100 text-slate-400 font-medium border-slate-200"}`}
+                              className={`text-[9px] px-1.5 py-0.5 rounded shadow-sm flex items-center gap-1 border ${showCheck ? "bg-emerald-50 text-emerald-700 font-bold border-emerald-200" : "bg-slate-100 text-slate-400 font-medium border-slate-200"}`}
                             >
                               <Star
-                                className={`w-2.5 h-2.5 ${isChecked ? "fill-emerald-500 text-emerald-500" : "fill-slate-300 text-slate-300"}`}
+                                className={`w-2.5 h-2.5 ${showCheck ? "fill-emerald-500 text-emerald-500" : "fill-slate-300 text-slate-300"}`}
                               />{" "}
                               {c.name}
                             </span>
@@ -1982,6 +2082,7 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* List Portofolio */}
                   <div className="flex-1 overflow-y-auto space-y-2 py-3 pr-1 custom-scrollbar">
                     {santriAch.length > 0 && (
                       <div className="bg-blue-50/50 p-2.5 rounded-xl border border-blue-100">
@@ -2026,6 +2127,7 @@ export default function App() {
                     )}
                   </div>
 
+                  {/* Tombol Akses Cepat */}
                   <a
                     href={`#/view/${s.id}`}
                     className="mt-3 w-full py-2.5 bg-slate-50 text-[#1356e2] hover:bg-[#1356e2] hover:text-white text-xs font-bold rounded-xl text-center flex items-center justify-center gap-1 transition-all border border-blue-100 shadow-sm"
@@ -2115,6 +2217,7 @@ export default function App() {
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+                {/* Field Link Dokumen */}
                 <div className="md:col-span-3">
                   <label className="block text-xs font-bold text-slate-600 mb-1">
                     Link Bukti/Dokumentasi (Opsional - URL Drive/Foto)
@@ -2401,7 +2504,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB PENGATURAN */}
+        {/* TAB PENGATURAN (Edit Data Foto & PIN) */}
         {activeTab === "pengaturan" && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm max-w-xl space-y-4">
@@ -2517,6 +2620,7 @@ export default function App() {
                             </span>
                           </td>
 
+                          {/* Edit Mode vs View Mode */}
                           <td className="p-3">
                             {editSantriId === s.id ? (
                               <input
