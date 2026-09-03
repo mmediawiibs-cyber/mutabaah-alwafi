@@ -376,7 +376,6 @@ export default function App() {
   const [publicSantriId, setPublicSantriId] = useState(null);
   const [showKatalog, setShowKatalog] = useState(false);
 
-  // Forms State
   const [formSantri, setFormSantri] = useState({
     name: "",
     class: "IX - Chechnya",
@@ -405,7 +404,7 @@ export default function App() {
     date: "",
   });
 
-  // Edit Data Santri State (Photo & PIN)
+  // Edit Data Santri State
   const [editSantriId, setEditSantriId] = useState(null);
   const [editForm, setEditForm] = useState({ photo: "", pin: "" });
 
@@ -649,15 +648,121 @@ export default function App() {
     setModalWA({ open: true, santriName: santri.name, text: message });
   };
 
+  // GENERATOR LAPORAN HARIAN GRUP WA SESUAI PERMINTAAN BARU
   const openWAGroupModal = () => {
-    let text = `Bismillah, Assalamu'alaikum Ummu.\n\nAlhamdulillah, data mutabaah dan laporan pekanan ananda sudah selesai kami perbarui. Ummu dapat memantau perkembangan ibadah, kedisiplinan, serta portofolio ananda melalui tautan (link) khusus di bawah ini:\n\n`;
-    text += `👉 https://${window.location.host}/#/katalog\n\n`;
-    text += `Silakan klik tautan tersebut, cari nama ananda, lalu gunakan *PIN Rahasia* ananda (default: NIS) untuk membuka gembok portofolio.\n\nJazakunnallahu khairan atas kerja sama Ummu dalam memantau perkembangan ananda. Semoga ananda senantiasa diberikan keistiqamahan.\nBarakallahu fiikum.`;
+    const rombelName =
+      selectedClass === "Semua" ? "SEMUA KELAS" : selectedClass;
+    const tanggalFormatted = getFormattedDate(selectedDate);
+
+    // 1. Tidak hadir (selain 'H')
+    const absensiList = filteredSantri
+      .filter((s) => {
+        const att = attendance[`${selectedDate}_${s.id}`] || "H";
+        return att !== "H";
+      })
+      .map((s) => {
+        const att = attendance[`${selectedDate}_${s.id}`];
+        return `- ${s.name} (${getKehadiranText(att)})`;
+      });
+    const tidakHadirText =
+      absensiList.length > 0 ? absensiList.join("\n") : "- Nihil (Semua Hadir)";
+
+    // Helper untuk cek ketidakterlaksanaan kegiatan (Kecuali yang sedang Haid untuk ibadah terkait)
+    const getGagalList = (catKeyword) => {
+      const cat = categories.find((c) =>
+        c.name.toLowerCase().includes(catKeyword.toLowerCase()),
+      );
+      if (!cat) return "-";
+
+      const list = filteredSantri
+        .filter((s) => {
+          const isHaid = !!haidStatus[`${selectedDate}_${s.id}`];
+          if (
+            isHaid &&
+            (cat.name.includes("Sholat") || cat.name.includes("Puasa"))
+          )
+            return false; // Abaikan yang haid
+          const isChecked = !!records[`${selectedDate}_${s.id}_${cat.id}`];
+          return !isChecked;
+        })
+        .map((s) => `- ${s.name}`);
+
+      return list.length > 0 ? list.join("\n") : "- Nihil (Semua Tuntas)";
+    };
+
+    // 2. Tidak berseragam
+    const tidakBerseragam = getGagalList("seragam");
+
+    // 3. Tidak Makan siang
+    const tidakMakanSiang = getGagalList("makan siang");
+
+    // 4. Tidak Sholat Dzuhur
+    const tidakDzuhur = getGagalList("dzuhur");
+
+    // 5. Tidak Sholat Ashar
+    const tidakAshar = getGagalList("ashar");
+
+    // 6. Sholat Dhuha
+    const dhuhaCat = categories.find((c) =>
+      c.name.toLowerCase().includes("dhuha"),
+    );
+    let dhuhaText = "- Nihil";
+    if (dhuhaCat) {
+      const dhuhaSantri = filteredSantri.filter(
+        (s) => records[`${selectedDate}_${s.id}_${dhuhaCat.id}`],
+      );
+      if (
+        dhuhaSantri.length === filteredSantri.length &&
+        filteredSantri.length > 0
+      ) {
+        dhuhaText = "Alhamdulillah hari ini seluruh santri sholat dhuha";
+      } else if (dhuhaSantri.length > 0) {
+        dhuhaText = dhuhaSantri.map((s) => `- ${s.name}`).join("\n");
+      } else {
+        dhuhaText = "- Belum ada data";
+      }
+    }
+
+    // 7. Puasa sunnah
+    const puasaCat = categories.find((c) =>
+      c.name.toLowerCase().includes("puasa"),
+    );
+    let puasaText = "- Nihil";
+    if (puasaCat) {
+      const puasaSantri = filteredSantri.filter(
+        (s) => records[`${selectedDate}_${s.id}_${puasaCat.id}`],
+      );
+      if (puasaSantri.length > 0) {
+        puasaText = puasaSantri.map((s) => `- ${s.name}`).join("\n");
+      }
+    }
+
+    // 8. Haidh
+    const haidList = filteredSantri
+      .filter((s) => !!haidStatus[`${selectedDate}_${s.id}`])
+      .map((s) => `- ${s.name}`);
+    const haidText = haidList.length > 0 ? haidList.join("\n") : "- Nihil";
+
+    // Susun template akhir
+    const groupMessage =
+      `LAPORAN HARIAN - ${rombelName}\n` +
+      `${tanggalFormatted}\n\n` +
+      `Tidak hadir:\n${tidakHadirText}\n\n` +
+      `Tidak berseragam:\n${tidakBerseragam}\n\n` +
+      `Tidak Makan siang:\n${tidakMakanSiang}\n\n` +
+      `Tidak Sholat Dzuhur berjamaah:\n${tidakDzuhur}\n\n` +
+      `Tidak Sholat Ashar berjamaah:\n${tidakAshar}\n\n` +
+      `Sholat Dhuha:\n${dhuhaText}\n\n` +
+      `Puasa sunnah:\n${puasaText}\n\n` +
+      `Haidh:\n${haidText}\n\n` +
+      `Semoga Allah senantiasa memberikan kemudahan dan keberkahan-Nya serta ananda dapat selalu istiqomah 🌸🙏🏻\n\n` +
+      `_Aamiin Yaa Rabbal'alamiin_\n` +
+      `_Barakallahu fiikum wa fiihin_`;
 
     setModalWA({
       open: true,
-      santriName: `Broadcast Grup ${selectedClass}`,
-      text: text,
+      santriName: `Laporan Harian Grup ${rombelName}`,
+      text: groupMessage,
     });
   };
 
@@ -895,9 +1000,8 @@ export default function App() {
   if (publicSantriId) {
     const santri =
       santriList.find((s) => s.id === publicSantriId) || INITIAL_SANTRI[0];
-    const santriPin = santri.pin || santri.nis; // Default fallback to NIS if pin is missing
+    const santriPin = santri.pin || santri.nis;
 
-    // RENDER LOCK SCREEN JIKA BELUM AUTH DAN BUKAN ADMIN (Bypass Admin)
     if (!isPortalAuth && !isAdmin) {
       return (
         <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
@@ -957,7 +1061,6 @@ export default function App() {
       );
     }
 
-    // RENDER PORTAL UTAMA JIKA SUDAH AUTH / ATAU ADMIN
     const santriAch = achievements.filter((a) =>
       a.santriIds.includes(santri.id),
     );
@@ -1073,7 +1176,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* STATUS KEHADIRAN */}
             <div className="mb-4 flex flex-wrap gap-2">
               <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 flex items-center gap-2">
                 Status Kehadiran:
@@ -1330,74 +1432,6 @@ export default function App() {
             </div>
           </div>
         </div>
-
-        {/* MODAL POP-UP PRESTASI */}
-        {selectedAch && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl relative">
-              <button
-                onClick={() => setSelectedAch(null)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl mx-auto flex items-center justify-center mb-3">
-                  <Award className="w-6 h-6" />
-                </div>
-                <h3 className="text-xl font-black text-slate-800 leading-tight">
-                  {selectedAch.title}
-                </h3>
-                <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold bg-[#f0b732] text-white uppercase tracking-wide">
-                  {selectedAch.rank}
-                </span>
-              </div>
-
-              <div className="space-y-3 text-sm border-t border-b border-slate-100 py-4">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Tingkat:</span>{" "}
-                  <span className="font-bold text-slate-800">
-                    {selectedAch.level}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Penyelenggara:</span>{" "}
-                  <span className="font-bold text-slate-800 text-right">
-                    {selectedAch.organizer}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Tanggal:</span>{" "}
-                  <span className="font-bold text-slate-800">
-                    {selectedAch.date}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Kategori:</span>{" "}
-                  <span className="font-bold text-slate-800">
-                    {selectedAch.type}
-                  </span>
-                </div>
-              </div>
-
-              {selectedAch.documentUrl ? (
-                <a
-                  href={selectedAch.documentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-3.5 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white font-bold rounded-xl shadow-sm transition-all flex justify-center items-center gap-2"
-                >
-                  <FileText className="w-4 h-4" /> Buka Lampiran Dokumen/Foto
-                </a>
-              ) : (
-                <div className="w-full py-3 text-center bg-slate-50 border border-slate-100 rounded-xl text-slate-400 text-xs italic">
-                  Tidak ada lampiran dokumen.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -1526,7 +1560,8 @@ export default function App() {
               onClick={openWAGroupModal}
               className="px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-600 text-xs font-bold border border-emerald-200 hover:bg-emerald-100 flex items-center gap-2 shadow-sm transition-all"
             >
-              <MessageCircle className="w-4 h-4" /> Kirim WA Grup
+              <MessageCircle className="w-4 h-4" /> Kirim WA Grup (Laporan
+              Harian)
             </button>
             <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
               <span className="text-xs font-bold text-slate-500 pl-2">
@@ -1826,7 +1861,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB PROFIL & CARD SANTRI TERBARU (5 KOLOM + DATA DETAIL) */}
+        {/* TAB PROFIL & CARD SANTRI (5 KOLOM + DATA DETAIL) */}
         {activeTab === "profil" && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {filteredSantri.map((s) => {
@@ -1855,7 +1890,6 @@ export default function App() {
                   key={s.id}
                   className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-all flex flex-col h-auto min-h-[500px]"
                 >
-                  {/* Foto & Identitas */}
                   <div className="flex flex-col items-center text-center pb-3 border-b border-slate-100">
                     <div className="w-16 h-16 rounded-full bg-slate-100 border-2 border-slate-200 overflow-hidden mb-2">
                       <img
@@ -1880,7 +1914,6 @@ export default function App() {
                     <p className="text-[10px] text-slate-400 mt-0.5">{s.ttl}</p>
                   </div>
 
-                  {/* Keterangan Harian & Catatan */}
                   <div className="py-3 flex flex-col border-b border-slate-100 shrink-0">
                     <div className="flex gap-2 text-[10px] mb-2 justify-center">
                       <span
@@ -1899,9 +1932,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Indikator Ceklis Detail (Hari Ini) */}
                   <div className="py-3 flex flex-col gap-2 border-b border-slate-100 shrink-0">
-                    {/* Wajib */}
                     <div className="flex flex-wrap gap-1.5 justify-center">
                       {categories
                         .filter((c) => c.type === "wajib")
@@ -1930,7 +1961,6 @@ export default function App() {
                           );
                         })}
                     </div>
-                    {/* Sunnah */}
                     <div className="flex flex-wrap gap-1.5 justify-center mt-1">
                       {categories
                         .filter((c) => c.type === "sunnah")
@@ -1952,7 +1982,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* List Portofolio */}
                   <div className="flex-1 overflow-y-auto space-y-2 py-3 pr-1 custom-scrollbar">
                     {santriAch.length > 0 && (
                       <div className="bg-blue-50/50 p-2.5 rounded-xl border border-blue-100">
@@ -1997,7 +2026,6 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Tombol Akses Cepat */}
                   <a
                     href={`#/view/${s.id}`}
                     className="mt-3 w-full py-2.5 bg-slate-50 text-[#1356e2] hover:bg-[#1356e2] hover:text-white text-xs font-bold rounded-xl text-center flex items-center justify-center gap-1 transition-all border border-blue-100 shadow-sm"
@@ -2087,7 +2115,6 @@ export default function App() {
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                {/* Field Link Dokumen */}
                 <div className="md:col-span-3">
                   <label className="block text-xs font-bold text-slate-600 mb-1">
                     Link Bukti/Dokumentasi (Opsional - URL Drive/Foto)
@@ -2374,7 +2401,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB PENGATURAN (Edit Data Foto & PIN) */}
+        {/* TAB PENGATURAN */}
         {activeTab === "pengaturan" && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm max-w-xl space-y-4">
@@ -2490,7 +2517,6 @@ export default function App() {
                             </span>
                           </td>
 
-                          {/* Edit Mode vs View Mode */}
                           <td className="p-3">
                             {editSantriId === s.id ? (
                               <input
