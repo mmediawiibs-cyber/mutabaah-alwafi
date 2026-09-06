@@ -27,6 +27,7 @@ import {
   ExternalLink,
   FileText,
   FileBarChart,
+  Trophy,
 } from "lucide-react";
 import { db } from "./firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
@@ -353,7 +354,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("ceklis");
   const [viewMode, setViewMode] = useState("harian");
 
-  // Date States
   const todayStr = new Date().toISOString().split("T")[0];
   const firstDayStr = new Date(new Date().setDate(1))
     .toISOString()
@@ -373,7 +373,7 @@ export default function App() {
   const [haidStatus, setHaidStatus] = useState({});
   const [achievements, setAchievements] = useState([]);
   const [violations, setViolations] = useState([]);
-  const [raporNotes, setRaporNotes] = useState({}); // Kumpulan catatan evaluasi kustom
+  const [raporNotes, setRaporNotes] = useState({});
 
   const [modalWA, setModalWA] = useState({
     open: false,
@@ -676,7 +676,6 @@ export default function App() {
     return { percent, stars, isHaid, sunnahTotal: sunnahCats.length };
   };
 
-  // LOGIKA RANGE EVALUASI
   const evalDateArray = useMemo(() => {
     const dateArray = [];
     let currentDate = new Date(evalStartDate);
@@ -709,7 +708,6 @@ export default function App() {
 
       const score = calculateScore(santriId, d);
       if (att === "H" || att === "S") {
-        // Izin/Alpha tidak dihitung dalam rata-rata agar tidak jatuh drastis jika memang libur? Atau tetap dihitung 0? Tetap dihitung 0 sebagai penalti ketidakhadiran.
         sumPercent += score.percent;
         activeDays++;
       } else {
@@ -764,11 +762,12 @@ export default function App() {
     setModalWA({ open: true, santriName: santri.name, text: message });
   };
 
-  const openRaporWAModal = (santri, stats, evalNote) => {
+  const openRaporWAModal = (santri, stats, evalNote, rank) => {
     const message =
       `*RAPOR EVALUASI MUTABAAH AL WAFI IIBS*\n` +
       `Bismillah, Assalamu'alaikum Ummu. Berikut adalah evaluasi ananda periode *${getFormattedDateShort(evalStartDate)} s.d ${getFormattedDateShort(evalEndDate)}*:\n\n` +
-      `Santriwati: *${santri.name}* (${santri.class})\n\n` +
+      `Santriwati: *${santri.name}* (${santri.class})\n` +
+      `Peringkat Mutabaah: *Ke-${rank}* 🏆\n\n` +
       `*Statistik Kehadiran & Udzur:*\n` +
       `• Hadir: ${stats.totalH} hari\n` +
       `• Izin: ${stats.totalI} hari\n` +
@@ -1015,37 +1014,6 @@ export default function App() {
       saveToFirebase("santri", updated);
     }
   };
-
-  const weekData = useMemo(() => {
-    const curr = new Date(selectedDate);
-    const day = curr.getDay();
-    const diff = curr.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(new Date(curr).setDate(diff));
-
-    const days = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(new Date(monday).setDate(monday.getDate() + i));
-      const isPastOrToday = d <= today;
-      days.push({
-        dateString: d.toISOString().split("T")[0],
-        label: d.getDate().toString().padStart(2, "0"),
-        dayName: [
-          "Minggu",
-          "Senin",
-          "Selasa",
-          "Rabu",
-          "Kamis",
-          "Jumat",
-          "Sabtu",
-        ][d.getDay()],
-        isActive: isPastOrToday,
-      });
-    }
-    return days;
-  }, [selectedDate]);
 
   // ---- RENDER KATALOG SANTRI (PUBLIC INDEX) ----
   if (showKatalog) {
@@ -1570,74 +1538,6 @@ export default function App() {
             </div>
           </div>
         </div>
-
-        {/* MODAL POP-UP PRESTASI WALI SANTRI */}
-        {selectedAch && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl relative">
-              <button
-                onClick={() => setSelectedAch(null)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl mx-auto flex items-center justify-center mb-3">
-                  <Award className="w-6 h-6" />
-                </div>
-                <h3 className="text-xl font-black text-slate-800 leading-tight">
-                  {selectedAch.title}
-                </h3>
-                <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold bg-[#f0b732] text-white uppercase tracking-wide">
-                  {selectedAch.rank}
-                </span>
-              </div>
-
-              <div className="space-y-3 text-sm border-t border-b border-slate-100 py-4">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Tingkat:</span>{" "}
-                  <span className="font-bold text-slate-800">
-                    {selectedAch.level}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Penyelenggara:</span>{" "}
-                  <span className="font-bold text-slate-800 text-right">
-                    {selectedAch.organizer}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Tanggal:</span>{" "}
-                  <span className="font-bold text-slate-800">
-                    {selectedAch.date}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Kategori:</span>{" "}
-                  <span className="font-bold text-slate-800">
-                    {selectedAch.type}
-                  </span>
-                </div>
-              </div>
-
-              {selectedAch.documentUrl ? (
-                <a
-                  href={selectedAch.documentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-3.5 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white font-bold rounded-xl shadow-sm transition-all flex justify-center items-center gap-2"
-                >
-                  <FileText className="w-4 h-4" /> Buka Lampiran Dokumen/Foto
-                </a>
-              ) : (
-                <div className="w-full py-3 text-center bg-slate-50 border border-slate-100 rounded-xl text-slate-400 text-xs italic">
-                  Tidak ada lampiran dokumen.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -1751,7 +1651,6 @@ export default function App() {
       </aside>
 
       <main className="flex-1 p-4 md:p-8 overflow-y-auto space-y-6">
-        {/* HEADER FILTER KELAS & TOMBOL WA GRUP */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm print:hidden">
           <div>
             <h2 className="text-xl font-black text-slate-800">
@@ -1790,7 +1689,6 @@ export default function App() {
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm print:hidden">
               <div className="flex flex-wrap items-center gap-6">
-                {/* TAMPILAN DATEPICKER SESUAI MODE */}
                 {viewMode === "kustom" ? (
                   <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
                     <span className="text-xs font-bold text-slate-500 px-2">
@@ -2136,185 +2034,225 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB EVALUASI KUSTOM */}
+            {/* TAB EVALUASI KUSTOM (LEADERBOARD MODE) */}
             {viewMode === "kustom" && (
               <div className="space-y-4">
-                {filteredSantri.map((s) => {
-                  const stats = calculateEvalStats(s.id);
-                  const evalNoteKey = `${evalStartDate}_${evalEndDate}_${s.id}`;
-                  const currentNote = raporNotes[evalNoteKey] || "";
+                <div className="bg-gradient-to-r from-yellow-50 to-amber-50 p-4 rounded-2xl border border-yellow-200 shadow-sm flex items-center justify-center gap-2 print:hidden">
+                  <Trophy className="w-5 h-5 text-amber-500" />
+                  <span className="text-xs font-bold text-amber-700">
+                    Tampilan ini otomatis mengurutkan santri dari peringkat
+                    tertinggi (Leaderboard).
+                  </span>
+                </div>
 
-                  // Filter Prestasi & Pelanggaran yang masuk rentang tanggal
-                  const sAch = achievements.filter(
-                    (a) =>
-                      a.santriIds.includes(s.id) &&
-                      a.date >= evalStartDate &&
-                      a.date <= evalEndDate,
-                  );
-                  const sVio = violations.filter(
-                    (v) =>
-                      v.santriId === s.id &&
-                      v.date >= evalStartDate &&
-                      v.date <= evalEndDate,
-                  );
+                {(() => {
+                  const evaluatedSantri = filteredSantri
+                    .map((s) => {
+                      return { ...s, stats: calculateEvalStats(s.id) };
+                    })
+                    .sort((a, b) => {
+                      if (b.stats.avgPercent !== a.stats.avgPercent) {
+                        return b.stats.avgPercent - a.stats.avgPercent;
+                      }
+                      return b.stats.sumStars - a.stats.sumStars;
+                    });
 
-                  return (
-                    <div
-                      key={s.id}
-                      className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col xl:flex-row gap-6"
-                    >
-                      {/* 1. Profil Info (Kiri) */}
-                      <div className="flex flex-col items-center xl:items-start text-center xl:text-left xl:w-48 shrink-0">
-                        <div className="w-16 h-16 rounded-full bg-slate-100 border-2 border-slate-200 overflow-hidden mb-2">
-                          <img
-                            src={s.photo}
-                            alt={s.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.src =
-                                "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80";
-                            }}
-                          />
-                        </div>
-                        <h4 className="font-black text-slate-800 text-sm leading-tight">
-                          {s.name}
-                        </h4>
-                        <p className="text-[10px] font-bold text-white bg-blue-600 px-2 py-0.5 rounded-full mt-1.5 mb-1">
-                          {s.class}
-                        </p>
-                        <p className="text-[10px] text-slate-500 font-medium tracking-wide">
-                          {s.nis}
-                        </p>
-                      </div>
+                  return evaluatedSantri.map((s, index) => {
+                    const stats = s.stats;
+                    const rank = index + 1;
+                    const evalNoteKey = `${evalStartDate}_${evalEndDate}_${s.id}`;
+                    const currentNote = raporNotes[evalNoteKey] || "";
 
-                      {/* 2. Grafik Konsistensi Harian (Tengah - Bar) */}
-                      <div className="flex-1 flex flex-col justify-center min-w-0 border-t border-b xl:border-none py-4 xl:py-0 border-slate-100">
-                        <div className="flex justify-between items-end mb-2">
-                          <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
-                            <FileBarChart className="w-4 h-4" /> Grafik Harian
-                            Ibadah Wajib
-                          </span>
-                          <div className="text-right">
-                            <span className="text-2xl font-black text-[#1356e2] leading-none">
-                              {stats.avgPercent}%
-                            </span>
-                            <span className="text-[10px] text-slate-400 block">
-                              Rata-Rata Tuntas
-                            </span>
+                    const sAch = achievements.filter(
+                      (a) =>
+                        a.santriIds.includes(s.id) &&
+                        a.date >= evalStartDate &&
+                        a.date <= evalEndDate,
+                    );
+                    const sVio = violations.filter(
+                      (v) =>
+                        v.santriId === s.id &&
+                        v.date >= evalStartDate &&
+                        v.date <= evalEndDate,
+                    );
+
+                    let badgeClass = "bg-slate-700 text-white shadow-md";
+                    if (rank === 1)
+                      badgeClass =
+                        "bg-gradient-to-br from-yellow-300 to-yellow-500 text-white shadow-yellow-400/50 shadow-lg ring-2 ring-yellow-200";
+                    else if (rank === 2)
+                      badgeClass =
+                        "bg-gradient-to-br from-slate-300 to-slate-400 text-slate-800 shadow-slate-300/50 shadow-lg ring-2 ring-slate-100";
+                    else if (rank === 3)
+                      badgeClass =
+                        "bg-gradient-to-br from-amber-600 to-orange-700 text-white shadow-orange-500/50 shadow-lg ring-2 ring-orange-300";
+
+                    return (
+                      <div
+                        key={s.id}
+                        className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col xl:flex-row gap-6 relative mt-3"
+                      >
+                        <div className="flex flex-col items-center xl:items-start text-center xl:text-left xl:w-48 shrink-0 relative">
+                          <div
+                            className={`absolute -top-8 xl:-left-8 w-10 h-10 rounded-full flex items-center justify-center font-black text-sm z-10 ${badgeClass}`}
+                          >
+                            #{rank}
                           </div>
+
+                          <div className="w-16 h-16 rounded-full bg-slate-100 border-2 border-slate-200 overflow-hidden mb-2">
+                            <img
+                              src={s.photo}
+                              alt={s.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src =
+                                  "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80";
+                              }}
+                            />
+                          </div>
+                          <h4 className="font-black text-slate-800 text-sm leading-tight">
+                            {s.name}
+                          </h4>
+                          <p className="text-[10px] font-bold text-white bg-blue-600 px-2 py-0.5 rounded-full mt-1.5 mb-1">
+                            {s.class}
+                          </p>
+                          <p className="text-[10px] text-slate-500 font-medium tracking-wide">
+                            {s.nis}
+                          </p>
                         </div>
-                        <div className="h-16 flex items-end gap-1 w-full bg-slate-50 p-2 rounded-xl border border-slate-100">
-                          {evalDateArray.map((d) => {
-                            const score = calculateScore(s.id, d);
-                            return (
-                              <div
-                                key={d}
-                                title={`${d}: ${score.percent}%`}
-                                className="flex-1 bg-blue-100 rounded-sm relative group h-full flex flex-col justify-end"
-                              >
+
+                        <div className="flex-1 flex flex-col justify-center min-w-0 border-t border-b xl:border-none py-4 xl:py-0 border-slate-100">
+                          <div className="flex justify-between items-end mb-2">
+                            <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
+                              <FileBarChart className="w-4 h-4" /> Grafik Harian
+                              Ibadah Wajib
+                            </span>
+                            <div className="text-right">
+                              <span className="text-2xl font-black text-[#1356e2] leading-none">
+                                {stats.avgPercent}%
+                              </span>
+                              <span className="text-[10px] text-slate-400 block">
+                                Rata-Rata Tuntas
+                              </span>
+                            </div>
+                          </div>
+                          <div className="h-16 flex items-end gap-1 w-full bg-slate-50 p-2 rounded-xl border border-slate-100">
+                            {evalDateArray.map((d) => {
+                              const score = calculateScore(s.id, d);
+
+                              let barColor = "bg-blue-500";
+                              if (score.percent <= 25) barColor = "bg-rose-500";
+                              else if (score.percent <= 50)
+                                barColor = "bg-amber-400";
+                              else if (score.percent <= 75)
+                                barColor = "bg-cyan-500";
+
+                              return (
                                 <div
-                                  className="bg-blue-500 w-full rounded-sm transition-all"
-                                  style={{ height: `${score.percent}%` }}
-                                ></div>
-                                {/* Hover Tooltip Mini */}
-                                <span className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[8px] px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 pointer-events-none z-10 whitespace-nowrap">
-                                  {getFormattedDateShort(d)}: {score.percent}%
+                                  key={d}
+                                  title={`${d}: ${score.percent}%`}
+                                  className="flex-1 bg-slate-100 rounded-sm relative group h-full flex flex-col justify-end overflow-hidden border border-slate-200/50"
+                                >
+                                  <div
+                                    className={`${barColor} w-full rounded-sm transition-all`}
+                                    style={{ height: `${score.percent}%` }}
+                                  ></div>
+                                  <span className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[8px] px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 pointer-events-none z-10 whitespace-nowrap">
+                                    {getFormattedDateShort(d)}: {score.percent}%
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 justify-center xl:w-48 shrink-0">
+                          <div className="bg-emerald-50 text-emerald-700 p-2 rounded-xl border border-emerald-100 flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase">
+                              Total Sunnah
+                            </span>
+                            <span className="text-sm font-black flex items-center gap-1">
+                              {stats.sumStars}{" "}
+                              <Star className="w-3 h-3 fill-emerald-500" />
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1 text-[9px] font-bold text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                            <div className="flex justify-between">
+                              Hadir:{" "}
+                              <span className="text-slate-800">
+                                {stats.totalH}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              Sakit:{" "}
+                              <span className="text-slate-800">
+                                {stats.totalS}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              Izin:{" "}
+                              <span className="text-slate-800">
+                                {stats.totalI}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              Alpha:{" "}
+                              <span className="text-slate-800">
+                                {stats.totalA}
+                              </span>
+                            </div>
+                            <div className="col-span-2 flex justify-between mt-1 pt-1 border-t border-slate-200 text-pink-600">
+                              Total Haid/Udzur:{" "}
+                              <span>{stats.totalUdzur} Hari</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 xl:w-64 shrink-0 border-t xl:border-t-0 border-slate-100 pt-4 xl:pt-0">
+                          {(sAch.length > 0 || sVio.length > 0) && (
+                            <div className="flex gap-1 text-[9px] font-bold">
+                              {sAch.length > 0 && (
+                                <span className="bg-[#f0b732] text-white px-2 py-0.5 rounded flex items-center gap-1">
+                                  <Award className="w-3 h-3" /> {sAch.length}{" "}
+                                  Prestasi
                                 </span>
-                              </div>
-                            );
-                          })}
+                              )}
+                              {sVio.length > 0 && (
+                                <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3" />{" "}
+                                  {sVio.length} Pelanggaran
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          <textarea
+                            placeholder="Tulis catatan rapor evaluasi ananda di sini..."
+                            value={currentNote}
+                            onChange={(e) =>
+                              handleRaporNoteChange(s.id, e.target.value)
+                            }
+                            className="w-full flex-1 min-h-[60px] p-2 bg-yellow-50/50 border border-yellow-200 text-xs font-medium text-slate-700 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:bg-white transition-all resize-none"
+                          />
+                          <button
+                            onClick={() =>
+                              openRaporWAModal(s, stats, currentNote, rank)
+                            }
+                            className="w-full py-2 bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 border border-emerald-200 text-xs font-bold rounded-xl flex items-center justify-center gap-1 transition-all shadow-sm print:hidden"
+                          >
+                            <MessageCircle className="w-4 h-4" /> Kirim WA Rapor
+                          </button>
                         </div>
                       </div>
-
-                      {/* 3. Statistik Absensi & Sunnah */}
-                      <div className="flex flex-col gap-2 justify-center xl:w-48 shrink-0">
-                        <div className="bg-emerald-50 text-emerald-700 p-2 rounded-xl border border-emerald-100 flex items-center justify-between">
-                          <span className="text-[10px] font-bold uppercase">
-                            Total Sunnah
-                          </span>
-                          <span className="text-sm font-black flex items-center gap-1">
-                            {stats.sumStars}{" "}
-                            <Star className="w-3 h-3 fill-emerald-500" />
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-1 text-[9px] font-bold text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
-                          <div className="flex justify-between">
-                            Hadir:{" "}
-                            <span className="text-slate-800">
-                              {stats.totalH}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            Sakit:{" "}
-                            <span className="text-slate-800">
-                              {stats.totalS}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            Izin:{" "}
-                            <span className="text-slate-800">
-                              {stats.totalI}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            Alpha:{" "}
-                            <span className="text-slate-800">
-                              {stats.totalA}
-                            </span>
-                          </div>
-                          <div className="col-span-2 flex justify-between mt-1 pt-1 border-t border-slate-200 text-pink-600">
-                            Total Haid/Udzur:{" "}
-                            <span>{stats.totalUdzur} Hari</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 4. Catatan, Prestasi & Tombol Aksi (Kanan) */}
-                      <div className="flex flex-col gap-2 xl:w-64 shrink-0 border-t xl:border-t-0 border-slate-100 pt-4 xl:pt-0">
-                        {/* Notifikasi Lomba/Pelanggaran jika ada */}
-                        {(sAch.length > 0 || sVio.length > 0) && (
-                          <div className="flex gap-1 text-[9px] font-bold">
-                            {sAch.length > 0 && (
-                              <span className="bg-[#f0b732] text-white px-2 py-0.5 rounded flex items-center gap-1">
-                                <Award className="w-3 h-3" /> {sAch.length}{" "}
-                                Prestasi
-                              </span>
-                            )}
-                            {sVio.length > 0 && (
-                              <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" />{" "}
-                                {sVio.length} Pelanggaran
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        <textarea
-                          placeholder="Tulis catatan rapor evaluasi ananda di sini..."
-                          value={currentNote}
-                          onChange={(e) =>
-                            handleRaporNoteChange(s.id, e.target.value)
-                          }
-                          className="w-full flex-1 min-h-[60px] p-2 bg-yellow-50/50 border border-yellow-200 text-xs font-medium text-slate-700 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:bg-white transition-all resize-none"
-                        />
-                        <button
-                          onClick={() =>
-                            openRaporWAModal(s, stats, currentNote)
-                          }
-                          className="w-full py-2 bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 border border-emerald-200 text-xs font-bold rounded-xl flex items-center justify-center gap-1 transition-all shadow-sm"
-                        >
-                          <MessageCircle className="w-4 h-4" /> Kirim WA Rapor
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>
         )}
 
-        {/* TAB PROFIL & CARD SANTRI TERBARU (5 KOLOM + DATA DETAIL) */}
+        {/* TAB PROFIL & CARD SANTRI */}
         {activeTab === "profil" && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {filteredSantri.map((s) => {
@@ -2583,6 +2521,7 @@ export default function App() {
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+                {/* Field Link Dokumen */}
                 <div className="md:col-span-3">
                   <label className="block text-xs font-bold text-slate-600 mb-1">
                     Link Bukti/Dokumentasi (Opsional - URL Drive/Foto)
