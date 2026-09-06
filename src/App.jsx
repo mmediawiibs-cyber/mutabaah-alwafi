@@ -26,6 +26,7 @@ import {
   Users,
   ExternalLink,
   FileText,
+  FileBarChart,
 } from "lucide-react";
 import { db } from "./firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
@@ -351,9 +352,17 @@ export default function App() {
   const [authError, setAuthError] = useState(false);
   const [activeTab, setActiveTab] = useState("ceklis");
   const [viewMode, setViewMode] = useState("harian");
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+
+  // Date States
+  const todayStr = new Date().toISOString().split("T")[0];
+  const firstDayStr = new Date(new Date().setDate(1))
+    .toISOString()
+    .split("T")[0];
+
+  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [evalStartDate, setEvalStartDate] = useState(firstDayStr);
+  const [evalEndDate, setEvalEndDate] = useState(todayStr);
+
   const [selectedClass, setSelectedClass] = useState("Semua");
 
   const [santriList, setSantriList] = useState(INITIAL_SANTRI);
@@ -364,6 +373,7 @@ export default function App() {
   const [haidStatus, setHaidStatus] = useState({});
   const [achievements, setAchievements] = useState([]);
   const [violations, setViolations] = useState([]);
+  const [raporNotes, setRaporNotes] = useState({}); // Kumpulan catatan evaluasi kustom
 
   const [modalWA, setModalWA] = useState({
     open: false,
@@ -450,6 +460,12 @@ export default function App() {
     const unsubNotes = onSnapshot(doc(db, "mutabaah_data", "notes"), (d) => {
       if (d.exists() && d.data().data) setNotes(d.data().data);
     });
+    const unsubRaporNotes = onSnapshot(
+      doc(db, "mutabaah_data", "rapor_notes"),
+      (d) => {
+        if (d.exists() && d.data().data) setRaporNotes(d.data().data);
+      },
+    );
     const unsubAtt = onSnapshot(doc(db, "mutabaah_data", "attendance"), (d) => {
       if (d.exists() && d.data().data) setAttendance(d.data().data);
     });
@@ -472,6 +488,7 @@ export default function App() {
       unsubCat();
       unsubRec();
       unsubNotes();
+      unsubRaporNotes();
       unsubAtt();
       unsubHaid();
       unsubAch();
@@ -534,6 +551,11 @@ export default function App() {
     return `${days[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
   };
 
+  const getFormattedDateShort = (dateString) => {
+    const d = new Date(dateString);
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+  };
+
   const changeDate = (days) => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + days);
@@ -582,7 +604,6 @@ export default function App() {
   const handleAutoCheckAll = () => {
     const updated = { ...records };
     filteredSantri.forEach((s) => {
-      // Hanya auto-ceklis jika status kehadiran Hadir (H)
       const att = attendance[`${selectedDate}_${s.id}`] || "H";
       if (att === "H") {
         categories.forEach((c) => {
@@ -614,7 +635,13 @@ export default function App() {
     saveToFirebase("notes", updated);
   };
 
-  // LOGIKA SKOR BARU (Sakit 100%, Izin/Alpha 0%)
+  const handleRaporNoteChange = (santriId, text) => {
+    const key = `${evalStartDate}_${evalEndDate}_${santriId}`;
+    const updated = { ...raporNotes, [key]: text };
+    setRaporNotes(updated);
+    saveToFirebase("rapor_notes", updated);
+  };
+
   const calculateScore = (santriId, targetDate = selectedDate) => {
     const att = attendance[`${targetDate}_${santriId}`] || "H";
     const isHaid = !!haidStatus[`${targetDate}_${santriId}`];
@@ -625,15 +652,12 @@ export default function App() {
     let stars = 0;
 
     if (att === "I" || att === "A") {
-      // Izin atau Alpha: Nilai 0 mutlak
       completedWajib = 0;
       stars = 0;
     } else if (att === "S") {
-      // Sakit: Wajib diberi udzur (100%), Sunnah 0
       completedWajib = wajibCats.length;
       stars = 0;
     } else {
-      // Hadir (H)
       wajibCats.forEach((c) => {
         if (isHaid && (c.name.includes("Sholat") || c.name.includes("Puasa"))) {
           completedWajib += 1;
@@ -652,6 +676,53 @@ export default function App() {
     return { percent, stars, isHaid, sunnahTotal: sunnahCats.length };
   };
 
+  // LOGIKA RANGE EVALUASI
+  const evalDateArray = useMemo(() => {
+    const dateArray = [];
+    let currentDate = new Date(evalStartDate);
+    const stopDate = new Date(evalEndDate);
+    while (currentDate <= stopDate) {
+      dateArray.push(currentDate.toISOString().split("T")[0]);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    return dateArray;
+  }, [evalStartDate, evalEndDate]);
+
+  const calculateEvalStats = (santriId) => {
+    let totalH = 0,
+      totalI = 0,
+      totalS = 0,
+      totalA = 0,
+      totalUdzur = 0;
+    let sumPercent = 0;
+    let sumStars = 0;
+    let activeDays = 0;
+
+    evalDateArray.forEach((d) => {
+      const att = attendance[`${d}_${santriId}`] || "H";
+      if (att === "H") totalH++;
+      if (att === "I") totalI++;
+      if (att === "S") totalS++;
+      if (att === "A") totalA++;
+
+      if (haidStatus[`${d}_${santriId}`]) totalUdzur++;
+
+      const score = calculateScore(santriId, d);
+      if (att === "H" || att === "S") {
+        // Izin/Alpha tidak dihitung dalam rata-rata agar tidak jatuh drastis jika memang libur? Atau tetap dihitung 0? Tetap dihitung 0 sebagai penalti ketidakhadiran.
+        sumPercent += score.percent;
+        activeDays++;
+      } else {
+        sumPercent += 0;
+        activeDays++;
+      }
+      sumStars += score.stars;
+    });
+
+    const avgPercent = activeDays > 0 ? Math.round(sumPercent / activeDays) : 0;
+    return { totalH, totalI, totalS, totalA, totalUdzur, avgPercent, sumStars };
+  };
+
   const openWAModal = (santri) => {
     const isHaid = !!haidStatus[`${selectedDate}_${santri.id}`];
     const attCode = attendance[`${selectedDate}_${santri.id}`] || "H";
@@ -663,7 +734,7 @@ export default function App() {
       .map((c) => {
         let isChecked = "";
         if (attCode === "I" || attCode === "A") {
-          isChecked = "-"; // Kosong jika Izin/Alpha
+          isChecked = "-";
         } else if (attCode === "S") {
           isChecked = c.type === "wajib" ? "Udzur (Sakit)" : "-";
         } else {
@@ -693,13 +764,36 @@ export default function App() {
     setModalWA({ open: true, santriName: santri.name, text: message });
   };
 
-  // GENERATOR WA GRUP BARU (Sesuai Permintaan User Terakhir)
+  const openRaporWAModal = (santri, stats, evalNote) => {
+    const message =
+      `*RAPOR EVALUASI MUTABAAH AL WAFI IIBS*\n` +
+      `Bismillah, Assalamu'alaikum Ummu. Berikut adalah evaluasi ananda periode *${getFormattedDateShort(evalStartDate)} s.d ${getFormattedDateShort(evalEndDate)}*:\n\n` +
+      `Santriwati: *${santri.name}* (${santri.class})\n\n` +
+      `*Statistik Kehadiran & Udzur:*\n` +
+      `• Hadir: ${stats.totalH} hari\n` +
+      `• Izin: ${stats.totalI} hari\n` +
+      `• Sakit: ${stats.totalS} hari\n` +
+      `• Alpha: ${stats.totalA} hari\n` +
+      `• Udzur/Haid: ${stats.totalUdzur} hari\n\n` +
+      `*Pencapaian Ibadah:*\n` +
+      `• Rata-rata Kewajiban: *${stats.avgPercent}%*\n` +
+      `• Total Sunnah: *${stats.sumStars} Bintang*\n\n` +
+      `*Catatan Evaluasi:*\n${evalNote || "Alhamdulillah, tingkatkan terus keistiqamahannya."}\n\n` +
+      `_Semoga Allah mudahkan langkah ananda dalam menuntut ilmu._\n` +
+      `Ummu bisa melihat portofolio detail ananda di: https://${window.location.host}/#/view/${santri.id}`;
+
+    setModalWA({
+      open: true,
+      santriName: `Rapor ${santri.name}`,
+      text: message,
+    });
+  };
+
   const openWAGroupModal = () => {
     const rombelName =
       selectedClass === "Semua" ? "SEMUA KELAS" : selectedClass;
     const tanggalFormatted = getFormattedDate(selectedDate);
 
-    // 1. Tidak Hadir (Hanya yang statusnya I, S, A)
     const absensiList = filteredSantri
       .filter((s) => {
         const att = attendance[`${selectedDate}_${s.id}`] || "H";
@@ -712,8 +806,6 @@ export default function App() {
     const tidakHadirText =
       absensiList.length > 0 ? absensiList.join("\n") : "- Nihil (Semua Hadir)";
 
-    // Helper: Mendapatkan daftar santri yang gagal di kategori tertentu
-    // Syarat: Dia Hadir (H), dan jika kategori sholat/puasa, dia tidak sedang Haid.
     const getGagalList = (catKeyword) => {
       const cat = categories.find((c) =>
         c.name.toLowerCase().includes(catKeyword.toLowerCase()),
@@ -723,7 +815,7 @@ export default function App() {
       const list = filteredSantri
         .filter((s) => {
           const att = attendance[`${selectedDate}_${s.id}`] || "H";
-          if (att !== "H") return false; // Abaikan jika sakit/izin/alpha
+          if (att !== "H") return false;
 
           const isHaid = !!haidStatus[`${selectedDate}_${s.id}`];
           if (
@@ -733,7 +825,7 @@ export default function App() {
             return false;
 
           const isChecked = !!records[`${selectedDate}_${s.id}_${cat.id}`];
-          return !isChecked; // Masuk daftar jika TIDAK terceklis
+          return !isChecked;
         })
         .map((s) => `- ${s.name}`);
 
@@ -745,17 +837,14 @@ export default function App() {
     const tidakDzuhur = getGagalList("dzuhur");
     const tidakAshar = getGagalList("ashar");
 
-    // Sholat Dhuha (Mendata yang CEKLIS saja)
     const dhuhaCat = categories.find((c) =>
       c.name.toLowerCase().includes("dhuha"),
     );
     let dhuhaText = "- Nihil";
     if (dhuhaCat) {
-      // Ambil total santri yang Hadir
       const presentSantri = filteredSantri.filter(
         (s) => (attendance[`${selectedDate}_${s.id}`] || "H") === "H",
       );
-      // Hitung dari yang hadir, siapa yang sholat Dhuha
       const dhuhaSantri = presentSantri.filter(
         (s) => records[`${selectedDate}_${s.id}_${dhuhaCat.id}`],
       );
@@ -770,7 +859,6 @@ export default function App() {
       }
     }
 
-    // Puasa Sunnah (Mendata yang CEKLIS saja)
     const puasaCat = categories.find((c) =>
       c.name.toLowerCase().includes("puasa"),
     );
@@ -786,7 +874,6 @@ export default function App() {
       }
     }
 
-    // Haidh
     const haidList = filteredSantri
       .filter((s) => !!haidStatus[`${selectedDate}_${s.id}`])
       .map((s) => `- ${s.name}`);
@@ -1483,6 +1570,74 @@ export default function App() {
             </div>
           </div>
         </div>
+
+        {/* MODAL POP-UP PRESTASI WALI SANTRI */}
+        {selectedAch && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl relative">
+              <button
+                onClick={() => setSelectedAch(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="text-center">
+                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl mx-auto flex items-center justify-center mb-3">
+                  <Award className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-black text-slate-800 leading-tight">
+                  {selectedAch.title}
+                </h3>
+                <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold bg-[#f0b732] text-white uppercase tracking-wide">
+                  {selectedAch.rank}
+                </span>
+              </div>
+
+              <div className="space-y-3 text-sm border-t border-b border-slate-100 py-4">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Tingkat:</span>{" "}
+                  <span className="font-bold text-slate-800">
+                    {selectedAch.level}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Penyelenggara:</span>{" "}
+                  <span className="font-bold text-slate-800 text-right">
+                    {selectedAch.organizer}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Tanggal:</span>{" "}
+                  <span className="font-bold text-slate-800">
+                    {selectedAch.date}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Kategori:</span>{" "}
+                  <span className="font-bold text-slate-800">
+                    {selectedAch.type}
+                  </span>
+                </div>
+              </div>
+
+              {selectedAch.documentUrl ? (
+                <a
+                  href={selectedAch.documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3.5 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white font-bold rounded-xl shadow-sm transition-all flex justify-center items-center gap-2"
+                >
+                  <FileText className="w-4 h-4" /> Buka Lampiran Dokumen/Foto
+                </a>
+              ) : (
+                <div className="w-full py-3 text-center bg-slate-50 border border-slate-100 rounded-xl text-slate-400 text-xs italic">
+                  Tidak ada lampiran dokumen.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1635,25 +1790,49 @@ export default function App() {
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm print:hidden">
               <div className="flex flex-wrap items-center gap-6">
-                <div className="flex items-center gap-3">
-                  <label className="relative cursor-pointer flex items-center justify-center w-10 h-10 bg-blue-50 text-[#1356e2] rounded-xl hover:bg-blue-100 transition-colors">
-                    <Calendar className="w-5 h-5 pointer-events-none" />
+                {/* TAMPILAN DATEPICKER SESUAI MODE */}
+                {viewMode === "kustom" ? (
+                  <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                    <span className="text-xs font-bold text-slate-500 px-2">
+                      Dari:
+                    </span>
                     <input
                       type="date"
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                      value={evalStartDate}
+                      onChange={(e) => setEvalStartDate(e.target.value)}
+                      className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold focus:ring-2 focus:ring-blue-500"
                     />
-                  </label>
-                  <div>
-                    <h3 className="text-base font-black text-slate-800">
-                      {getFormattedDate(selectedDate)}
-                    </h3>
-                    <p className="text-xs text-slate-400 font-medium">
-                      Tanggal Pencatatan
-                    </p>
+                    <span className="text-xs font-bold text-slate-500 px-2">
+                      s.d
+                    </span>
+                    <input
+                      type="date"
+                      value={evalEndDate}
+                      onChange={(e) => setEvalEndDate(e.target.value)}
+                      className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold focus:ring-2 focus:ring-blue-500"
+                    />
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <label className="relative cursor-pointer flex items-center justify-center w-10 h-10 bg-blue-50 text-[#1356e2] rounded-xl hover:bg-blue-100 transition-colors">
+                      <Calendar className="w-5 h-5 pointer-events-none" />
+                      <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                      />
+                    </label>
+                    <div>
+                      <h3 className="text-base font-black text-slate-800">
+                        {getFormattedDate(selectedDate)}
+                      </h3>
+                      <p className="text-xs text-slate-400 font-medium">
+                        Tanggal Pencatatan
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
                   <button
@@ -1667,6 +1846,12 @@ export default function App() {
                     className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${viewMode === "pekanan" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"}`}
                   >
                     Pekanan
+                  </button>
+                  <button
+                    onClick={() => setViewMode("kustom")}
+                    className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${viewMode === "kustom" ? "bg-gradient-to-r from-[#1356e2] to-[#d38cf6] shadow-sm text-white" : "text-slate-500"}`}
+                  >
+                    Evaluasi Rapor
                   </button>
                 </div>
               </div>
@@ -1694,10 +1879,19 @@ export default function App() {
                     </button>
                   </>
                 )}
+                {viewMode === "kustom" && (
+                  <button
+                    onClick={() => window.print()}
+                    className="px-4 py-2.5 rounded-xl bg-[#1356e2] text-white text-xs font-bold hover:bg-blue-700 flex items-center gap-2 shadow-sm"
+                  >
+                    <Printer className="w-4 h-4" /> Cetak Semua Rapor
+                  </button>
+                )}
               </div>
             </div>
 
-            {viewMode === "harian" ? (
+            {/* TAB HARIAN */}
+            {viewMode === "harian" && (
               <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -1794,7 +1988,6 @@ export default function App() {
                                     </span>
                                   );
                               } else {
-                                // Jika Hadir
                                 const isRestricted =
                                   isHaid &&
                                   (c.name.includes("Sholat") ||
@@ -1862,7 +2055,10 @@ export default function App() {
                   </table>
                 </div>
               </div>
-            ) : (
+            )}
+
+            {/* TAB PEKANAN */}
+            {viewMode === "pekanan" && (
               <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-slate-800">
@@ -1939,6 +2135,182 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            {/* TAB EVALUASI KUSTOM */}
+            {viewMode === "kustom" && (
+              <div className="space-y-4">
+                {filteredSantri.map((s) => {
+                  const stats = calculateEvalStats(s.id);
+                  const evalNoteKey = `${evalStartDate}_${evalEndDate}_${s.id}`;
+                  const currentNote = raporNotes[evalNoteKey] || "";
+
+                  // Filter Prestasi & Pelanggaran yang masuk rentang tanggal
+                  const sAch = achievements.filter(
+                    (a) =>
+                      a.santriIds.includes(s.id) &&
+                      a.date >= evalStartDate &&
+                      a.date <= evalEndDate,
+                  );
+                  const sVio = violations.filter(
+                    (v) =>
+                      v.santriId === s.id &&
+                      v.date >= evalStartDate &&
+                      v.date <= evalEndDate,
+                  );
+
+                  return (
+                    <div
+                      key={s.id}
+                      className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col xl:flex-row gap-6"
+                    >
+                      {/* 1. Profil Info (Kiri) */}
+                      <div className="flex flex-col items-center xl:items-start text-center xl:text-left xl:w-48 shrink-0">
+                        <div className="w-16 h-16 rounded-full bg-slate-100 border-2 border-slate-200 overflow-hidden mb-2">
+                          <img
+                            src={s.photo}
+                            alt={s.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.src =
+                                "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80";
+                            }}
+                          />
+                        </div>
+                        <h4 className="font-black text-slate-800 text-sm leading-tight">
+                          {s.name}
+                        </h4>
+                        <p className="text-[10px] font-bold text-white bg-blue-600 px-2 py-0.5 rounded-full mt-1.5 mb-1">
+                          {s.class}
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-medium tracking-wide">
+                          {s.nis}
+                        </p>
+                      </div>
+
+                      {/* 2. Grafik Konsistensi Harian (Tengah - Bar) */}
+                      <div className="flex-1 flex flex-col justify-center min-w-0 border-t border-b xl:border-none py-4 xl:py-0 border-slate-100">
+                        <div className="flex justify-between items-end mb-2">
+                          <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
+                            <FileBarChart className="w-4 h-4" /> Grafik Harian
+                            Ibadah Wajib
+                          </span>
+                          <div className="text-right">
+                            <span className="text-2xl font-black text-[#1356e2] leading-none">
+                              {stats.avgPercent}%
+                            </span>
+                            <span className="text-[10px] text-slate-400 block">
+                              Rata-Rata Tuntas
+                            </span>
+                          </div>
+                        </div>
+                        <div className="h-16 flex items-end gap-1 w-full bg-slate-50 p-2 rounded-xl border border-slate-100">
+                          {evalDateArray.map((d) => {
+                            const score = calculateScore(s.id, d);
+                            return (
+                              <div
+                                key={d}
+                                title={`${d}: ${score.percent}%`}
+                                className="flex-1 bg-blue-100 rounded-sm relative group h-full flex flex-col justify-end"
+                              >
+                                <div
+                                  className="bg-blue-500 w-full rounded-sm transition-all"
+                                  style={{ height: `${score.percent}%` }}
+                                ></div>
+                                {/* Hover Tooltip Mini */}
+                                <span className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[8px] px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 pointer-events-none z-10 whitespace-nowrap">
+                                  {getFormattedDateShort(d)}: {score.percent}%
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* 3. Statistik Absensi & Sunnah */}
+                      <div className="flex flex-col gap-2 justify-center xl:w-48 shrink-0">
+                        <div className="bg-emerald-50 text-emerald-700 p-2 rounded-xl border border-emerald-100 flex items-center justify-between">
+                          <span className="text-[10px] font-bold uppercase">
+                            Total Sunnah
+                          </span>
+                          <span className="text-sm font-black flex items-center gap-1">
+                            {stats.sumStars}{" "}
+                            <Star className="w-3 h-3 fill-emerald-500" />
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 text-[9px] font-bold text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                          <div className="flex justify-between">
+                            Hadir:{" "}
+                            <span className="text-slate-800">
+                              {stats.totalH}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            Sakit:{" "}
+                            <span className="text-slate-800">
+                              {stats.totalS}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            Izin:{" "}
+                            <span className="text-slate-800">
+                              {stats.totalI}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            Alpha:{" "}
+                            <span className="text-slate-800">
+                              {stats.totalA}
+                            </span>
+                          </div>
+                          <div className="col-span-2 flex justify-between mt-1 pt-1 border-t border-slate-200 text-pink-600">
+                            Total Haid/Udzur:{" "}
+                            <span>{stats.totalUdzur} Hari</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 4. Catatan, Prestasi & Tombol Aksi (Kanan) */}
+                      <div className="flex flex-col gap-2 xl:w-64 shrink-0 border-t xl:border-t-0 border-slate-100 pt-4 xl:pt-0">
+                        {/* Notifikasi Lomba/Pelanggaran jika ada */}
+                        {(sAch.length > 0 || sVio.length > 0) && (
+                          <div className="flex gap-1 text-[9px] font-bold">
+                            {sAch.length > 0 && (
+                              <span className="bg-[#f0b732] text-white px-2 py-0.5 rounded flex items-center gap-1">
+                                <Award className="w-3 h-3" /> {sAch.length}{" "}
+                                Prestasi
+                              </span>
+                            )}
+                            {sVio.length > 0 && (
+                              <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />{" "}
+                                {sVio.length} Pelanggaran
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        <textarea
+                          placeholder="Tulis catatan rapor evaluasi ananda di sini..."
+                          value={currentNote}
+                          onChange={(e) =>
+                            handleRaporNoteChange(s.id, e.target.value)
+                          }
+                          className="w-full flex-1 min-h-[60px] p-2 bg-yellow-50/50 border border-yellow-200 text-xs font-medium text-slate-700 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:bg-white transition-all resize-none"
+                        />
+                        <button
+                          onClick={() =>
+                            openRaporWAModal(s, stats, currentNote)
+                          }
+                          className="w-full py-2 bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 border border-emerald-200 text-xs font-bold rounded-xl flex items-center justify-center gap-1 transition-all shadow-sm"
+                        >
+                          <MessageCircle className="w-4 h-4" /> Kirim WA Rapor
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -1964,14 +2336,13 @@ export default function App() {
               const isHaid = !!haidStatus[`${selectedDate}_${s.id}`];
               const note =
                 notes[`${selectedDate}_${s.id}`] ||
-                "Alhamdulillah tidak ada catatan";
+                "Alhamdulillah tidak ada catatan khusus hari ini.";
 
               return (
                 <div
                   key={s.id}
                   className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-all flex flex-col h-auto min-h-[500px]"
                 >
-                  {/* Foto & Identitas */}
                   <div className="flex flex-col items-center text-center pb-3 border-b border-slate-100">
                     <div className="w-16 h-16 rounded-full bg-slate-100 border-2 border-slate-200 overflow-hidden mb-2">
                       <img
@@ -1996,7 +2367,6 @@ export default function App() {
                     <p className="text-[10px] text-slate-400 mt-0.5">{s.ttl}</p>
                   </div>
 
-                  {/* Keterangan Harian & Catatan */}
                   <div className="py-3 flex flex-col border-b border-slate-100 shrink-0">
                     <div className="flex gap-2 text-[10px] mb-2 justify-center">
                       <span
@@ -2015,9 +2385,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Indikator Ceklis Detail (Hari Ini) */}
                   <div className="py-3 flex flex-col gap-2 border-b border-slate-100 shrink-0">
-                    {/* Wajib */}
                     <div className="flex flex-wrap gap-1.5 justify-center">
                       {categories
                         .filter((c) => c.type === "wajib")
@@ -2057,7 +2425,6 @@ export default function App() {
                           );
                         })}
                     </div>
-                    {/* Sunnah */}
                     <div className="flex flex-wrap gap-1.5 justify-center mt-1">
                       {categories
                         .filter((c) => c.type === "sunnah")
@@ -2082,7 +2449,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* List Portofolio */}
                   <div className="flex-1 overflow-y-auto space-y-2 py-3 pr-1 custom-scrollbar">
                     {santriAch.length > 0 && (
                       <div className="bg-blue-50/50 p-2.5 rounded-xl border border-blue-100">
@@ -2127,7 +2493,6 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Tombol Akses Cepat */}
                   <a
                     href={`#/view/${s.id}`}
                     className="mt-3 w-full py-2.5 bg-slate-50 text-[#1356e2] hover:bg-[#1356e2] hover:text-white text-xs font-bold rounded-xl text-center flex items-center justify-center gap-1 transition-all border border-blue-100 shadow-sm"
@@ -2141,6 +2506,7 @@ export default function App() {
           </div>
         )}
 
+        {/* TAB PRESTASI */}
         {activeTab === "prestasi" && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
@@ -2217,7 +2583,6 @@ export default function App() {
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                {/* Field Link Dokumen */}
                 <div className="md:col-span-3">
                   <label className="block text-xs font-bold text-slate-600 mb-1">
                     Link Bukti/Dokumentasi (Opsional - URL Drive/Foto)
@@ -2342,6 +2707,7 @@ export default function App() {
           </div>
         )}
 
+        {/* TAB PELANGGARAN */}
         {activeTab === "pelanggaran" && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
@@ -2504,7 +2870,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB PENGATURAN (Edit Data Foto & PIN) */}
+        {/* TAB PENGATURAN */}
         {activeTab === "pengaturan" && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm max-w-xl space-y-4">
@@ -2620,7 +2986,6 @@ export default function App() {
                             </span>
                           </td>
 
-                          {/* Edit Mode vs View Mode */}
                           <td className="p-3">
                             {editSantriId === s.id ? (
                               <input
@@ -2735,7 +3100,7 @@ export default function App() {
               </button>
             </div>
             <textarea
-              rows={12}
+              rows={14}
               value={modalWA.text}
               onChange={(e) => setModalWA({ ...modalWA, text: e.target.value })}
               className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
