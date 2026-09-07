@@ -642,11 +642,19 @@ export default function App() {
     saveToFirebase("rapor_notes", updated);
   };
 
+  // LOGIKA SKOR BARU DENGAN OTOMATISASI PUASA -> MAKAN SIANG
   const calculateScore = (santriId, targetDate = selectedDate) => {
     const att = attendance[`${targetDate}_${santriId}`] || "H";
     const isHaid = !!haidStatus[`${targetDate}_${santriId}`];
     const wajibCats = categories.filter((c) => c.type === "wajib");
     const sunnahCats = categories.filter((c) => c.type === "sunnah");
+
+    const puasaCat = sunnahCats.find((c) =>
+      c.name.toLowerCase().includes("puasa"),
+    );
+    const isPuasa = puasaCat
+      ? !!records[`${targetDate}_${santriId}_${puasaCat.id}`]
+      : false;
 
     let completedWajib = 0;
     let stars = 0;
@@ -659,8 +667,14 @@ export default function App() {
       stars = 0;
     } else {
       wajibCats.forEach((c) => {
-        if (isHaid && (c.name.includes("Sholat") || c.name.includes("Puasa"))) {
+        if (
+          isHaid &&
+          (c.name.toLowerCase().includes("sholat") ||
+            c.name.toLowerCase().includes("puasa"))
+        ) {
           completedWajib += 1;
+        } else if (isPuasa && c.name.toLowerCase().includes("makan siang")) {
+          completedWajib += 1; // Puasa Sunnah -> Makan Siang otomatis Tuntas
         } else if (records[`${targetDate}_${santriId}_${c.id}`]) {
           completedWajib += 1;
         }
@@ -727,6 +741,12 @@ export default function App() {
     const note =
       notes[`${selectedDate}_${santri.id}`] ||
       "Alhamdulillah tidak ada catatan khusus hari ini.";
+    const puasaCat = categories.find((c) =>
+      c.name.toLowerCase().includes("puasa"),
+    );
+    const isPuasa = puasaCat
+      ? !!records[`${selectedDate}_${santri.id}_${puasaCat.id}`]
+      : false;
 
     let summaryList = categories
       .map((c) => {
@@ -737,12 +757,18 @@ export default function App() {
           isChecked = c.type === "wajib" ? "Udzur (Sakit)" : "-";
         } else {
           const isRestricted =
-            isHaid && (c.name.includes("Sholat") || c.name.includes("Puasa"));
-          isChecked = isRestricted
-            ? "Udzur Syar'i (Haid)"
-            : records[`${selectedDate}_${santri.id}_${c.id}`]
+            isHaid &&
+            (c.name.toLowerCase().includes("sholat") ||
+              c.name.toLowerCase().includes("puasa"));
+          if (isRestricted) {
+            isChecked = "Udzur Syar'i (Haid)";
+          } else if (isPuasa && c.name.toLowerCase().includes("makan siang")) {
+            isChecked = "Puasa";
+          } else {
+            isChecked = records[`${selectedDate}_${santri.id}_${c.id}`]
               ? "Terlaksana"
               : "Belum";
+          }
         }
         return `• ${c.name}: ${isChecked}`;
       })
@@ -792,6 +818,9 @@ export default function App() {
     const rombelName =
       selectedClass === "Semua" ? "SEMUA KELAS" : selectedClass;
     const tanggalFormatted = getFormattedDate(selectedDate);
+    const puasaCat = categories.find((c) =>
+      c.name.toLowerCase().includes("puasa"),
+    );
 
     const absensiList = filteredSantri
       .filter((s) => {
@@ -819,9 +848,16 @@ export default function App() {
           const isHaid = !!haidStatus[`${selectedDate}_${s.id}`];
           if (
             isHaid &&
-            (cat.name.includes("Sholat") || cat.name.includes("Puasa"))
+            (cat.name.toLowerCase().includes("sholat") ||
+              cat.name.toLowerCase().includes("puasa"))
           )
             return false;
+
+          const isPuasa = puasaCat
+            ? !!records[`${selectedDate}_${s.id}_${puasaCat.id}`]
+            : false;
+          if (isPuasa && catKeyword.toLowerCase() === "makan siang")
+            return false; // Puasa -> aman dari daftar tidak makan
 
           const isChecked = !!records[`${selectedDate}_${s.id}_${cat.id}`];
           return !isChecked;
@@ -858,9 +894,6 @@ export default function App() {
       }
     }
 
-    const puasaCat = categories.find((c) =>
-      c.name.toLowerCase().includes("puasa"),
-    );
     let puasaText = "- Nihil";
     if (puasaCat) {
       const puasaSantri = filteredSantri.filter((s) => {
@@ -1283,9 +1316,17 @@ export default function App() {
                 const isHaid = !!haidStatus[`${selectedDate}_${santri.id}`];
                 const isRestricted =
                   isHaid &&
-                  (c.name.includes("Sholat") || c.name.includes("Puasa"));
+                  (c.name.toLowerCase().includes("sholat") ||
+                    c.name.toLowerCase().includes("puasa"));
                 const isChecked =
                   records[`${selectedDate}_${santri.id}_${c.id}`];
+
+                const puasaCat = categories.find((pc) =>
+                  pc.name.toLowerCase().includes("puasa"),
+                );
+                const isPuasa = puasaCat
+                  ? !!records[`${selectedDate}_${santri.id}_${puasaCat.id}`]
+                  : false;
 
                 let statusText = "Belum Terlaksana";
                 let statusColor = "text-rose-600 bg-rose-50 border-rose-100";
@@ -1305,6 +1346,12 @@ export default function App() {
                   if (isRestricted) {
                     statusText = "Udzur Syar'i (Haid)";
                     statusColor = "text-pink-600 bg-pink-50 border-pink-100";
+                  } else if (
+                    isPuasa &&
+                    c.name.toLowerCase().includes("makan siang")
+                  ) {
+                    statusText = "Puasa Sunnah";
+                    statusColor = "text-blue-600 bg-blue-50 border-blue-100";
                   } else if (isChecked) {
                     statusText = "Terlaksana";
                     statusColor =
@@ -1393,6 +1440,12 @@ export default function App() {
                     const isHaid = !!haidStatus[`${d.dateString}_${santri.id}`];
                     const attCode =
                       attendance[`${d.dateString}_${santri.id}`] || "H";
+                    const puasaCat = categories.find((pc) =>
+                      pc.name.toLowerCase().includes("puasa"),
+                    );
+                    const isPuasa = puasaCat
+                      ? !!records[`${d.dateString}_${santri.id}_${puasaCat.id}`]
+                      : false;
 
                     let completedWajib = 0;
                     if (attCode === "I" || attCode === "A") {
@@ -1405,8 +1458,13 @@ export default function App() {
                         .forEach((c) => {
                           if (
                             isHaid &&
-                            (c.name.includes("Sholat") ||
-                              c.name.includes("Puasa"))
+                            (c.name.toLowerCase().includes("sholat") ||
+                              c.name.toLowerCase().includes("puasa"))
+                          )
+                            completedWajib++;
+                          else if (
+                            isPuasa &&
+                            c.name.toLowerCase().includes("makan siang")
                           )
                             completedWajib++;
                           else if (
@@ -1788,7 +1846,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* TAB HARIAN */}
+            {/* ISI TAB CEKLIS (Harian / Pekanan / Kustom) */}
             {viewMode === "harian" && (
               <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
@@ -1814,6 +1872,12 @@ export default function App() {
                         const att =
                           attendance[`${selectedDate}_${s.id}`] || "H";
                         const isHaid = !!haidStatus[`${selectedDate}_${s.id}`];
+                        const puasaCat = categories.find((pc) =>
+                          pc.name.toLowerCase().includes("puasa"),
+                        );
+                        const isPuasa = puasaCat
+                          ? !!records[`${selectedDate}_${s.id}_${puasaCat.id}`]
+                          : false;
                         const score = calculateScore(s.id);
                         return (
                           <tr
@@ -1888,12 +1952,21 @@ export default function App() {
                               } else {
                                 const isRestricted =
                                   isHaid &&
-                                  (c.name.includes("Sholat") ||
-                                    c.name.includes("Puasa"));
+                                  (c.name.toLowerCase().includes("sholat") ||
+                                    c.name.toLowerCase().includes("puasa"));
                                 if (isRestricted) {
                                   statusElement = (
                                     <span className="text-[10px] font-bold text-pink-500 px-2 py-0.5 bg-pink-50 rounded border border-pink-100">
                                       Udzur
+                                    </span>
+                                  );
+                                } else if (
+                                  isPuasa &&
+                                  c.name.toLowerCase().includes("makan siang")
+                                ) {
+                                  statusElement = (
+                                    <span className="text-[10px] font-bold text-blue-500 px-2 py-0.5 bg-blue-50 rounded border border-blue-100">
+                                      Puasa
                                     </span>
                                   );
                                 } else {
@@ -1955,7 +2028,6 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB PEKANAN */}
             {viewMode === "pekanan" && (
               <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
@@ -2034,7 +2106,6 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB EVALUASI KUSTOM (LEADERBOARD MODE) */}
             {viewMode === "kustom" && (
               <div className="space-y-4">
                 <div className="bg-gradient-to-r from-yellow-50 to-amber-50 p-4 rounded-2xl border border-yellow-200 shadow-sm flex items-center justify-center gap-2 print:hidden">
@@ -2136,7 +2207,7 @@ export default function App() {
                               </span>
                             </div>
                           </div>
-                          <div className="h-16 flex items-end gap-1 w-full bg-slate-50 p-2 rounded-xl border border-slate-100">
+                          <div className="h-16 flex items-end gap-1 w-full bg-slate-100 p-2 rounded-xl border border-slate-200 shadow-inner">
                             {evalDateArray.map((d) => {
                               const score = calculateScore(s.id, d);
 
@@ -2151,10 +2222,10 @@ export default function App() {
                                 <div
                                   key={d}
                                   title={`${d}: ${score.percent}%`}
-                                  className="flex-1 bg-slate-100 rounded-sm relative group h-full flex flex-col justify-end overflow-hidden border border-slate-200/50"
+                                  className="flex-1 bg-slate-200/50 rounded-sm relative group h-full flex flex-col justify-end overflow-hidden"
                                 >
                                   <div
-                                    className={`${barColor} w-full rounded-sm transition-all`}
+                                    className={`${barColor} w-full rounded-sm transition-all shadow-sm`}
                                     style={{ height: `${score.percent}%` }}
                                   ></div>
                                   <span className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[8px] px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 pointer-events-none z-10 whitespace-nowrap">
@@ -2272,6 +2343,12 @@ export default function App() {
                       ? "Sakit"
                       : "Alpha";
               const isHaid = !!haidStatus[`${selectedDate}_${s.id}`];
+              const puasaCat = categories.find((pc) =>
+                pc.name.toLowerCase().includes("puasa"),
+              );
+              const isPuasa = puasaCat
+                ? !!records[`${selectedDate}_${s.id}_${puasaCat.id}`]
+                : false;
               const note =
                 notes[`${selectedDate}_${s.id}`] ||
                 "Alhamdulillah tidak ada catatan khusus hari ini.";
@@ -2332,19 +2409,30 @@ export default function App() {
                             records[`${selectedDate}_${s.id}_${c.id}`];
                           const isRestrictedHaid =
                             isHaid &&
-                            (c.name.includes("Sholat") ||
-                              c.name.includes("Puasa"));
+                            (c.name.toLowerCase().includes("sholat") ||
+                              c.name.toLowerCase().includes("puasa"));
 
                           let badgeClass = "";
+                          let badgeText = c.name;
+
                           if (attCode === "I" || attCode === "A") {
                             badgeClass =
                               "bg-slate-100 text-slate-400 font-medium border border-slate-200";
                           } else if (attCode === "S") {
                             badgeClass =
                               "bg-amber-50 text-amber-600 font-bold border border-amber-200";
+                            badgeText = `${c.name} (Udzur)`;
                           } else if (isRestrictedHaid) {
                             badgeClass =
                               "bg-pink-50 text-pink-600 font-bold border border-pink-200";
+                            badgeText = `${c.name} (Udzur)`;
+                          } else if (
+                            isPuasa &&
+                            c.name.toLowerCase().includes("makan siang")
+                          ) {
+                            badgeClass =
+                              "bg-blue-100 text-blue-700 font-bold border border-blue-200";
+                            badgeText = `${c.name} (Puasa)`;
                           } else if (isChecked) {
                             badgeClass =
                               "bg-blue-100 text-blue-700 font-bold border border-blue-200";
@@ -2358,7 +2446,7 @@ export default function App() {
                               key={c.id}
                               className={`text-[9px] px-1.5 py-0.5 rounded shadow-sm ${badgeClass}`}
                             >
-                              {c.name}
+                              {badgeText}
                             </span>
                           );
                         })}
