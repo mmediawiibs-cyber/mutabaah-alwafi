@@ -539,6 +539,7 @@ export default function App() {
 
   const getFormattedDate = (dateString) => {
     const d = new Date(dateString);
+    if (isNaN(d.getTime())) return "";
     const days = [
       "Minggu",
       "Senin",
@@ -553,11 +554,14 @@ export default function App() {
 
   const getFormattedDateShort = (dateString) => {
     const d = new Date(dateString);
+    if (isNaN(d.getTime())) return "";
     return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
   };
 
   const changeDate = (days) => {
+    if (!selectedDate) return;
     const d = new Date(selectedDate);
+    if (isNaN(d.getTime())) return;
     d.setDate(d.getDate() + days);
     setSelectedDate(d.toISOString().split("T")[0]);
   };
@@ -642,7 +646,7 @@ export default function App() {
     saveToFirebase("rapor_notes", updated);
   };
 
-  // LOGIKA SKOR BARU DENGAN OTOMATISASI PUASA -> MAKAN SIANG
+  // SENTRALISASI LOGIKA SKOR (Aman dari Crash!)
   const calculateScore = (santriId, targetDate = selectedDate) => {
     const att = attendance[`${targetDate}_${santriId}`] || "H";
     const isHaid = !!haidStatus[`${targetDate}_${santriId}`];
@@ -663,17 +667,19 @@ export default function App() {
       completedWajib = 0;
       stars = 0;
     } else if (att === "S") {
-      completedWajib = wajibCats.length;
+      completedWajib = wajibCats.length; // Sakit = Kewajiban 100% tuntas via udzur
       stars = 0;
     } else {
       wajibCats.forEach((c) => {
-        if (
+        const isRestrictedHaid =
           isHaid &&
           (c.name.toLowerCase().includes("sholat") ||
-            c.name.toLowerCase().includes("puasa"))
-        ) {
+            c.name.toLowerCase().includes("puasa"));
+        const isMakanSiang = c.name.toLowerCase().includes("makan siang");
+
+        if (isRestrictedHaid) {
           completedWajib += 1;
-        } else if (isPuasa && c.name.toLowerCase().includes("makan siang")) {
+        } else if (isPuasa && isMakanSiang) {
           completedWajib += 1; // Puasa Sunnah -> Makan Siang otomatis Tuntas
         } else if (records[`${targetDate}_${santriId}_${c.id}`]) {
           completedWajib += 1;
@@ -684,21 +690,79 @@ export default function App() {
       });
     }
 
-    const percent = wajibCats.length
-      ? Math.round((completedWajib / wajibCats.length) * 100)
-      : 0;
-    return { percent, stars, isHaid, sunnahTotal: sunnahCats.length };
+    const percent =
+      wajibCats.length > 0
+        ? Math.round((completedWajib / wajibCats.length) * 100)
+        : 0;
+
+    return {
+      percent,
+      stars,
+      isHaid,
+      completedWajib,
+      wajibTotal: wajibCats.length,
+      sunnahTotal: sunnahCats.length,
+    };
   };
 
-  const evalDateArray = useMemo(() => {
-    const dateArray = [];
-    let currentDate = new Date(evalStartDate);
-    const stopDate = new Date(evalEndDate);
-    while (currentDate <= stopDate) {
-      dateArray.push(currentDate.toISOString().split("T")[0]);
-      currentDate.setDate(currentDate.getDate() + 1);
+  // KALKULASI TANGGAL PEKANAN YANG AMAN (Fail-safe)
+  const weekData = useMemo(() => {
+    try {
+      if (!selectedDate) return [];
+      const curr = new Date(selectedDate);
+      if (isNaN(curr.getTime())) return [];
+
+      const day = curr.getDay();
+      const diff = curr.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(curr);
+      monday.setDate(diff);
+
+      const days = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        const isPastOrToday = d <= today;
+        days.push({
+          dateString: d.toISOString().split("T")[0],
+          label: d.getDate().toString().padStart(2, "0"),
+          dayName: [
+            "Minggu",
+            "Senin",
+            "Selasa",
+            "Rabu",
+            "Kamis",
+            "Jumat",
+            "Sabtu",
+          ][d.getDay()],
+          isActive: isPastOrToday,
+        });
+      }
+      return days;
+    } catch (e) {
+      return [];
     }
-    return dateArray;
+  }, [selectedDate]);
+
+  // KALKULASI TANGGAL KUSTOM YANG AMAN (Fail-safe)
+  const evalDateArray = useMemo(() => {
+    try {
+      const dateArray = [];
+      if (!evalStartDate || !evalEndDate) return [];
+      let currentDate = new Date(evalStartDate);
+      const stopDate = new Date(evalEndDate);
+      if (isNaN(currentDate.getTime()) || isNaN(stopDate.getTime())) return [];
+
+      while (currentDate <= stopDate) {
+        dateArray.push(currentDate.toISOString().split("T")[0]);
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      return dateArray;
+    } catch (e) {
+      return [];
+    }
   }, [evalStartDate, evalEndDate]);
 
   const calculateEvalStats = (santriId) => {
@@ -763,7 +827,7 @@ export default function App() {
           if (isRestricted) {
             isChecked = "Udzur Syar'i (Haid)";
           } else if (isPuasa && c.name.toLowerCase().includes("makan siang")) {
-            isChecked = "Puasa";
+            isChecked = "Puasa Sunnah";
           } else {
             isChecked = records[`${selectedDate}_${santri.id}_${c.id}`]
               ? "Terlaksana"
@@ -857,7 +921,7 @@ export default function App() {
             ? !!records[`${selectedDate}_${s.id}_${puasaCat.id}`]
             : false;
           if (isPuasa && catKeyword.toLowerCase() === "makan siang")
-            return false; // Puasa -> aman dari daftar tidak makan
+            return false; // Aman dari list gagal
 
           const isChecked = !!records[`${selectedDate}_${s.id}_${cat.id}`];
           return !isChecked;
@@ -942,15 +1006,12 @@ export default function App() {
   const saveAchievement = (e) => {
     e.preventDefault();
     if (!formAch.title || formAch.santriIds.length === 0) return;
-
     let updated;
-    if (formAch.id) {
+    if (formAch.id)
       updated = achievements.map((a) =>
         a.id === formAch.id ? { ...formAch } : a,
       );
-    } else {
-      updated = [...achievements, { ...formAch, id: `ach_${Date.now()}` }];
-    }
+    else updated = [...achievements, { ...formAch, id: `ach_${Date.now()}` }];
     setAchievements(updated);
     saveToFirebase("achievements", updated);
     setFormAch({
@@ -975,15 +1036,12 @@ export default function App() {
   const saveViolation = (e) => {
     e.preventDefault();
     if (!formVio.santriId || !formVio.description) return;
-
     let updated;
-    if (formVio.id) {
+    if (formVio.id)
       updated = violations.map((v) =>
         v.id === formVio.id ? { ...formVio } : v,
       );
-    } else {
-      updated = [...violations, { ...formVio, id: `vio_${Date.now()}` }];
-    }
+    else updated = [...violations, { ...formVio, id: `vio_${Date.now()}` }];
     setViolations(updated);
     saveToFirebase("violations", updated);
     setFormVio({
@@ -1314,10 +1372,6 @@ export default function App() {
                 const attCode =
                   attendance[`${selectedDate}_${santri.id}`] || "H";
                 const isHaid = !!haidStatus[`${selectedDate}_${santri.id}`];
-                const isRestricted =
-                  isHaid &&
-                  (c.name.toLowerCase().includes("sholat") ||
-                    c.name.toLowerCase().includes("puasa"));
                 const isChecked =
                   records[`${selectedDate}_${santri.id}_${c.id}`];
 
@@ -1343,7 +1397,11 @@ export default function App() {
                     statusColor = "text-slate-500 bg-slate-50 border-slate-200";
                   }
                 } else {
-                  if (isRestricted) {
+                  const isRestrictedHaid =
+                    isHaid &&
+                    (c.name.toLowerCase().includes("sholat") ||
+                      c.name.toLowerCase().includes("puasa"));
+                  if (isRestrictedHaid) {
                     statusText = "Udzur Syar'i (Haid)";
                     statusColor = "text-pink-600 bg-pink-50 border-pink-100";
                   } else if (
@@ -1395,9 +1453,10 @@ export default function App() {
             <div className="flex items-center gap-2 mb-4">
               <CalendarDays className="w-5 h-5 text-[#1356e2]" />
               <h3 className="font-bold text-slate-800 text-lg">
-                Rekap Pekan Ini{" "}
+                Rekap Pekan Ini
                 <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded ml-2 hidden sm:inline-block">
-                  ({weekData[0].dateString} s.d {weekData[6].dateString})
+                  ({weekData.length > 0 ? weekData[0].dateString : ""} s.d{" "}
+                  {weekData.length > 0 ? weekData[6].dateString : ""})
                 </span>
               </h3>
             </div>
@@ -1433,52 +1492,14 @@ export default function App() {
                     }
 
                     const score = calculateScore(santri.id, d.dateString);
-                    const wajibCats = categories.filter(
-                      (c) => c.type === "wajib",
-                    ).length;
-
-                    const isHaid = !!haidStatus[`${d.dateString}_${santri.id}`];
                     const attCode =
                       attendance[`${d.dateString}_${santri.id}`] || "H";
-                    const puasaCat = categories.find((pc) =>
-                      pc.name.toLowerCase().includes("puasa"),
-                    );
-                    const isPuasa = puasaCat
-                      ? !!records[`${d.dateString}_${santri.id}_${puasaCat.id}`]
-                      : false;
-
-                    let completedWajib = 0;
-                    if (attCode === "I" || attCode === "A") {
-                      completedWajib = 0;
-                    } else if (attCode === "S") {
-                      completedWajib = wajibCats;
-                    } else {
-                      categories
-                        .filter((c) => c.type === "wajib")
-                        .forEach((c) => {
-                          if (
-                            isHaid &&
-                            (c.name.toLowerCase().includes("sholat") ||
-                              c.name.toLowerCase().includes("puasa"))
-                          )
-                            completedWajib++;
-                          else if (
-                            isPuasa &&
-                            c.name.toLowerCase().includes("makan siang")
-                          )
-                            completedWajib++;
-                          else if (
-                            records[`${d.dateString}_${santri.id}_${c.id}`]
-                          )
-                            completedWajib++;
-                        });
-                    }
 
                     return (
                       <tr key={d.dateString} className="hover:bg-slate-50">
                         <td className="py-3 px-2 font-semibold text-slate-700">
                           {d.dayName}, {d.label}
-                          {isHaid && attCode === "H" && (
+                          {score.isHaid && attCode === "H" && (
                             <span className="text-[10px] bg-pink-100 text-pink-600 px-1.5 py-0.5 rounded ml-2">
                               Udzur
                             </span>
@@ -1491,7 +1512,7 @@ export default function App() {
                         </td>
                         <td className="py-3 px-2 text-center">
                           <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                            {completedWajib} / {wajibCats}
+                            {score.completedWajib} / {score.wajibTotal}
                           </span>
                         </td>
                         <td className="py-3 px-2 text-center">
@@ -1846,7 +1867,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* ISI TAB CEKLIS (Harian / Pekanan / Kustom) */}
+            {/* TAB HARIAN */}
             {viewMode === "harian" && (
               <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
@@ -2028,6 +2049,7 @@ export default function App() {
               </div>
             )}
 
+            {/* TAB PEKANAN */}
             {viewMode === "pekanan" && (
               <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
@@ -2035,7 +2057,9 @@ export default function App() {
                     Rata-Rata Pekanan (Senin - Minggu)
                   </h3>
                   <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                    {weekData[0].dateString} - {weekData[6].dateString}
+                    {weekData.length > 0
+                      ? `${weekData[0].dateString} - ${weekData[6].dateString}`
+                      : ""}
                   </span>
                 </div>
                 <div className="overflow-x-auto">
@@ -2106,6 +2130,7 @@ export default function App() {
               </div>
             )}
 
+            {/* TAB EVALUASI KUSTOM (LEADERBOARD MODE) */}
             {viewMode === "kustom" && (
               <div className="space-y-4">
                 <div className="bg-gradient-to-r from-yellow-50 to-amber-50 p-4 rounded-2xl border border-yellow-200 shadow-sm flex items-center justify-center gap-2 print:hidden">
