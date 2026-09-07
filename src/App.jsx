@@ -646,7 +646,7 @@ export default function App() {
     saveToFirebase("rapor_notes", updated);
   };
 
-  // SENTRALISASI LOGIKA SKOR (Aman dari Crash!)
+  // SENTRALISASI LOGIKA SKOR UTAMA
   const calculateScore = (santriId, targetDate = selectedDate) => {
     const att = attendance[`${targetDate}_${santriId}`] || "H";
     const isHaid = !!haidStatus[`${targetDate}_${santriId}`];
@@ -656,9 +656,11 @@ export default function App() {
     const puasaCat = sunnahCats.find((c) =>
       c.name.toLowerCase().includes("puasa"),
     );
-    const isPuasa = puasaCat
-      ? !!records[`${targetDate}_${santriId}_${puasaCat.id}`]
-      : false;
+    // FIX: Puasa = false mutlak jika sedang Haid
+    const isPuasa =
+      puasaCat && !isHaid
+        ? !!records[`${targetDate}_${santriId}_${puasaCat.id}`]
+        : false;
 
     let completedWajib = 0;
     let stars = 0;
@@ -670,23 +672,30 @@ export default function App() {
       completedWajib = wajibCats.length; // Sakit = Kewajiban 100% tuntas via udzur
       stars = 0;
     } else {
+      // Wajib Loop
       wajibCats.forEach((c) => {
         const isRestrictedHaid =
-          isHaid &&
-          (c.name.toLowerCase().includes("sholat") ||
-            c.name.toLowerCase().includes("puasa"));
+          isHaid && c.name.toLowerCase().includes("sholat");
         const isMakanSiang = c.name.toLowerCase().includes("makan siang");
 
         if (isRestrictedHaid) {
-          completedWajib += 1;
+          completedWajib += 1; // Sholat (Wajib) saat haid bernilai Tuntas 100%
         } else if (isPuasa && isMakanSiang) {
-          completedWajib += 1; // Puasa Sunnah -> Makan Siang otomatis Tuntas
+          completedWajib += 1; // Makan Siang otomatis Tuntas jika sedang puasa
         } else if (records[`${targetDate}_${santriId}_${c.id}`]) {
           completedWajib += 1;
         }
       });
+      // Sunnah Loop
       sunnahCats.forEach((c) => {
-        if (records[`${targetDate}_${santriId}_${c.id}`]) stars += 1;
+        const isRestrictedHaid =
+          isHaid &&
+          (c.name.toLowerCase().includes("sholat") ||
+            c.name.toLowerCase().includes("puasa") ||
+            c.name.toLowerCase().includes("dhuha"));
+        if (!isRestrictedHaid && records[`${targetDate}_${santriId}_${c.id}`]) {
+          stars += 1; // Sunnah tidak dapat bintang jika terblokir Haid
+        }
       });
     }
 
@@ -705,48 +714,6 @@ export default function App() {
     };
   };
 
-  // KALKULASI TANGGAL PEKANAN YANG AMAN (Fail-safe)
-  const weekData = useMemo(() => {
-    try {
-      if (!selectedDate) return [];
-      const curr = new Date(selectedDate);
-      if (isNaN(curr.getTime())) return [];
-
-      const day = curr.getDay();
-      const diff = curr.getDate() - day + (day === 0 ? -6 : 1);
-      const monday = new Date(curr);
-      monday.setDate(diff);
-
-      const days = [];
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + i);
-        const isPastOrToday = d <= today;
-        days.push({
-          dateString: d.toISOString().split("T")[0],
-          label: d.getDate().toString().padStart(2, "0"),
-          dayName: [
-            "Minggu",
-            "Senin",
-            "Selasa",
-            "Rabu",
-            "Kamis",
-            "Jumat",
-            "Sabtu",
-          ][d.getDay()],
-          isActive: isPastOrToday,
-        });
-      }
-      return days;
-    } catch (e) {
-      return [];
-    }
-  }, [selectedDate]);
-
-  // KALKULASI TANGGAL KUSTOM YANG AMAN (Fail-safe)
   const evalDateArray = useMemo(() => {
     try {
       const dateArray = [];
@@ -808,9 +775,10 @@ export default function App() {
     const puasaCat = categories.find((c) =>
       c.name.toLowerCase().includes("puasa"),
     );
-    const isPuasa = puasaCat
-      ? !!records[`${selectedDate}_${santri.id}_${puasaCat.id}`]
-      : false;
+    const isPuasa =
+      puasaCat && !isHaid
+        ? !!records[`${selectedDate}_${santri.id}_${puasaCat.id}`]
+        : false;
 
     let summaryList = categories
       .map((c) => {
@@ -820,12 +788,13 @@ export default function App() {
         } else if (attCode === "S") {
           isChecked = c.type === "wajib" ? "Udzur (Sakit)" : "-";
         } else {
-          const isRestricted =
+          const isRestrictedHaid =
             isHaid &&
             (c.name.toLowerCase().includes("sholat") ||
-              c.name.toLowerCase().includes("puasa"));
-          if (isRestricted) {
-            isChecked = "Udzur Syar'i (Haid)";
+              c.name.toLowerCase().includes("puasa") ||
+              c.name.toLowerCase().includes("dhuha"));
+          if (isRestrictedHaid) {
+            isChecked = "Udzur Syar'i";
           } else if (isPuasa && c.name.toLowerCase().includes("makan siang")) {
             isChecked = "Puasa Sunnah";
           } else {
@@ -907,24 +876,25 @@ export default function App() {
       const list = filteredSantri
         .filter((s) => {
           const att = attendance[`${selectedDate}_${s.id}`] || "H";
-          if (att !== "H") return false;
+          if (att !== "H") return false; // Abaikan jika izin/sakit/alpha
 
           const isHaid = !!haidStatus[`${selectedDate}_${s.id}`];
-          if (
+          const isRestrictedHaid =
             isHaid &&
             (cat.name.toLowerCase().includes("sholat") ||
-              cat.name.toLowerCase().includes("puasa"))
-          )
-            return false;
+              cat.name.toLowerCase().includes("puasa") ||
+              cat.name.toLowerCase().includes("dhuha"));
+          if (isRestrictedHaid) return false; // Aman (Udzur)
 
-          const isPuasa = puasaCat
-            ? !!records[`${selectedDate}_${s.id}_${puasaCat.id}`]
-            : false;
+          const isPuasa =
+            puasaCat && !isHaid
+              ? !!records[`${selectedDate}_${s.id}_${puasaCat.id}`]
+              : false;
           if (isPuasa && catKeyword.toLowerCase() === "makan siang")
-            return false; // Aman dari list gagal
+            return false; // Aman (Makan Siang tercover Puasa)
 
           const isChecked = !!records[`${selectedDate}_${s.id}_${cat.id}`];
-          return !isChecked;
+          return !isChecked; // Masuk daftar jika TIDAK terceklis
         })
         .map((s) => `- ${s.name}`);
 
@@ -941,16 +911,19 @@ export default function App() {
     );
     let dhuhaText = "- Nihil";
     if (dhuhaCat) {
-      const presentSantri = filteredSantri.filter(
-        (s) => (attendance[`${selectedDate}_${s.id}`] || "H") === "H",
+      // Ambil total santri yang Hadir & Tidak Haid (Karena Haid = Udzur Dhuha)
+      const presentAndNotHaidSantri = filteredSantri.filter(
+        (s) =>
+          (attendance[`${selectedDate}_${s.id}`] || "H") === "H" &&
+          !haidStatus[`${selectedDate}_${s.id}`],
       );
-      const dhuhaSantri = presentSantri.filter(
+      const dhuhaSantri = presentAndNotHaidSantri.filter(
         (s) => records[`${selectedDate}_${s.id}_${dhuhaCat.id}`],
       );
 
       if (
-        dhuhaSantri.length === presentSantri.length &&
-        presentSantri.length > 0
+        dhuhaSantri.length === presentAndNotHaidSantri.length &&
+        presentAndNotHaidSantri.length > 0
       ) {
         dhuhaText = "Alhamdulillah hari ini seluruh santri sholat dhuha";
       } else if (dhuhaSantri.length > 0) {
@@ -963,6 +936,7 @@ export default function App() {
       const puasaSantri = filteredSantri.filter((s) => {
         const att = attendance[`${selectedDate}_${s.id}`] || "H";
         if (att !== "H") return false;
+        if (haidStatus[`${selectedDate}_${s.id}`]) return false; // Haid tidak bisa puasa
         return records[`${selectedDate}_${s.id}_${puasaCat.id}`];
       });
       if (puasaSantri.length > 0) {
@@ -1105,6 +1079,46 @@ export default function App() {
       saveToFirebase("santri", updated);
     }
   };
+
+  const weekData = useMemo(() => {
+    try {
+      if (!selectedDate) return [];
+      const curr = new Date(selectedDate);
+      if (isNaN(curr.getTime())) return [];
+
+      const day = curr.getDay();
+      const diff = curr.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(curr);
+      monday.setDate(diff);
+
+      const days = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        const isPastOrToday = d <= today;
+        days.push({
+          dateString: d.toISOString().split("T")[0],
+          label: d.getDate().toString().padStart(2, "0"),
+          dayName: [
+            "Minggu",
+            "Senin",
+            "Selasa",
+            "Rabu",
+            "Kamis",
+            "Jumat",
+            "Sabtu",
+          ][d.getDay()],
+          isActive: isPastOrToday,
+        });
+      }
+      return days;
+    } catch (e) {
+      return [];
+    }
+  }, [selectedDate]);
 
   // ---- RENDER KATALOG SANTRI (PUBLIC INDEX) ----
   if (showKatalog) {
@@ -1378,9 +1392,10 @@ export default function App() {
                 const puasaCat = categories.find((pc) =>
                   pc.name.toLowerCase().includes("puasa"),
                 );
-                const isPuasa = puasaCat
-                  ? !!records[`${selectedDate}_${santri.id}_${puasaCat.id}`]
-                  : false;
+                const isPuasa =
+                  puasaCat && !isHaid
+                    ? !!records[`${selectedDate}_${santri.id}_${puasaCat.id}`]
+                    : false;
 
                 let statusText = "Belum Terlaksana";
                 let statusColor = "text-rose-600 bg-rose-50 border-rose-100";
@@ -1400,9 +1415,10 @@ export default function App() {
                   const isRestrictedHaid =
                     isHaid &&
                     (c.name.toLowerCase().includes("sholat") ||
-                      c.name.toLowerCase().includes("puasa"));
+                      c.name.toLowerCase().includes("puasa") ||
+                      c.name.toLowerCase().includes("dhuha"));
                   if (isRestrictedHaid) {
-                    statusText = "Udzur Syar'i (Haid)";
+                    statusText = "Udzur Syar'i";
                     statusColor = "text-pink-600 bg-pink-50 border-pink-100";
                   } else if (
                     isPuasa &&
@@ -1453,7 +1469,7 @@ export default function App() {
             <div className="flex items-center gap-2 mb-4">
               <CalendarDays className="w-5 h-5 text-[#1356e2]" />
               <h3 className="font-bold text-slate-800 text-lg">
-                Rekap Pekan Ini
+                Rekap Pekan Ini{" "}
                 <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded ml-2 hidden sm:inline-block">
                   ({weekData.length > 0 ? weekData[0].dateString : ""} s.d{" "}
                   {weekData.length > 0 ? weekData[6].dateString : ""})
@@ -1896,10 +1912,14 @@ export default function App() {
                         const puasaCat = categories.find((pc) =>
                           pc.name.toLowerCase().includes("puasa"),
                         );
-                        const isPuasa = puasaCat
-                          ? !!records[`${selectedDate}_${s.id}_${puasaCat.id}`]
-                          : false;
+                        const isPuasa =
+                          puasaCat && !isHaid
+                            ? !!records[
+                                `${selectedDate}_${s.id}_${puasaCat.id}`
+                              ]
+                            : false;
                         const score = calculateScore(s.id);
+
                         return (
                           <tr
                             key={s.id}
@@ -1971,16 +1991,26 @@ export default function App() {
                                     </span>
                                   );
                               } else {
-                                const isRestricted =
+                                const isRestrictedHaid =
                                   isHaid &&
                                   (c.name.toLowerCase().includes("sholat") ||
-                                    c.name.toLowerCase().includes("puasa"));
-                                if (isRestricted) {
-                                  statusElement = (
-                                    <span className="text-[10px] font-bold text-pink-500 px-2 py-0.5 bg-pink-50 rounded border border-pink-100">
-                                      Udzur
-                                    </span>
-                                  );
+                                    c.name.toLowerCase().includes("puasa") ||
+                                    c.name.toLowerCase().includes("dhuha"));
+
+                                if (isRestrictedHaid) {
+                                  if (c.type === "wajib") {
+                                    statusElement = (
+                                      <span className="text-[10px] font-bold text-pink-500 px-2 py-0.5 bg-pink-50 rounded border border-pink-100">
+                                        Udzur
+                                      </span>
+                                    );
+                                  } else {
+                                    statusElement = (
+                                      <span className="text-[10px] font-bold text-slate-400 px-2 py-0.5 bg-slate-50 rounded border border-slate-200">
+                                        Udzur
+                                      </span>
+                                    );
+                                  }
                                 } else if (
                                   isPuasa &&
                                   c.name.toLowerCase().includes("makan siang")
@@ -2093,8 +2123,15 @@ export default function App() {
                                   s.id,
                                   d.dateString,
                                 );
-                                totalPercent += score.percent;
-                                activeDays += 1;
+                                const attCode =
+                                  attendance[`${d.dateString}_${s.id}`] || "H";
+                                if (attCode === "H" || attCode === "S") {
+                                  totalPercent += score.percent;
+                                  activeDays += 1;
+                                } else {
+                                  totalPercent += 0;
+                                  activeDays += 1;
+                                }
                                 return (
                                   <td
                                     key={d.dateString}
@@ -2371,9 +2408,10 @@ export default function App() {
               const puasaCat = categories.find((pc) =>
                 pc.name.toLowerCase().includes("puasa"),
               );
-              const isPuasa = puasaCat
-                ? !!records[`${selectedDate}_${s.id}_${puasaCat.id}`]
-                : false;
+              const isPuasa =
+                puasaCat && !isHaid
+                  ? !!records[`${selectedDate}_${s.id}_${puasaCat.id}`]
+                  : false;
               const note =
                 notes[`${selectedDate}_${s.id}`] ||
                 "Alhamdulillah tidak ada catatan khusus hari ini.";
@@ -2482,8 +2520,25 @@ export default function App() {
                         .map((c) => {
                           const isChecked =
                             records[`${selectedDate}_${s.id}_${c.id}`];
-                          const isAvailable = attCode === "H";
+                          const isRestrictedHaid =
+                            isHaid &&
+                            (c.name.toLowerCase().includes("sholat") ||
+                              c.name.toLowerCase().includes("puasa") ||
+                              c.name.toLowerCase().includes("dhuha"));
+                          const isAvailable =
+                            attCode === "H" && !isRestrictedHaid;
                           const showCheck = isAvailable && isChecked;
+
+                          if (isRestrictedHaid) {
+                            return (
+                              <span
+                                key={c.id}
+                                className="text-[9px] px-1.5 py-0.5 rounded shadow-sm bg-slate-100 text-slate-400 font-medium border border-slate-200"
+                              >
+                                {c.name} (Udzur)
+                              </span>
+                            );
+                          }
 
                           return (
                             <span
