@@ -605,14 +605,18 @@ export default function App() {
     saveToFirebase("attendance", updated);
   };
 
+  // LOGIKA AUTO CEKLIS: Ceklis semua ibadah kecuali Puasa Sunnah (agar Makan Siang tidak otomatis terkunci)
   const handleAutoCheckAll = () => {
     const updated = { ...records };
     filteredSantri.forEach((s) => {
       const att = attendance[`${selectedDate}_${s.id}`] || "H";
       if (att === "H") {
         categories.forEach((c) => {
-          const key = `${selectedDate}_${s.id}_${c.id}`;
-          updated[key] = true;
+          // Lewati (skip) kategori Puasa agar tidak tercentang otomatis
+          if (!c.name.toLowerCase().includes("puasa")) {
+            const key = `${selectedDate}_${s.id}_${c.id}`;
+            updated[key] = true;
+          }
         });
       }
     });
@@ -656,7 +660,6 @@ export default function App() {
     const puasaCat = sunnahCats.find((c) =>
       c.name.toLowerCase().includes("puasa"),
     );
-    // FIX: Puasa = false mutlak jika sedang Haid
     const isPuasa =
       puasaCat && !isHaid
         ? !!records[`${targetDate}_${santriId}_${puasaCat.id}`]
@@ -679,7 +682,7 @@ export default function App() {
         const isMakanSiang = c.name.toLowerCase().includes("makan siang");
 
         if (isRestrictedHaid) {
-          completedWajib += 1; // Sholat (Wajib) saat haid bernilai Tuntas 100%
+          completedWajib += 1;
         } else if (isPuasa && isMakanSiang) {
           completedWajib += 1; // Makan Siang otomatis Tuntas jika sedang puasa
         } else if (records[`${targetDate}_${santriId}_${c.id}`]) {
@@ -694,7 +697,7 @@ export default function App() {
             c.name.toLowerCase().includes("puasa") ||
             c.name.toLowerCase().includes("dhuha"));
         if (!isRestrictedHaid && records[`${targetDate}_${santriId}_${c.id}`]) {
-          stars += 1; // Sunnah tidak dapat bintang jika terblokir Haid
+          stars += 1;
         }
       });
     }
@@ -876,25 +879,25 @@ export default function App() {
       const list = filteredSantri
         .filter((s) => {
           const att = attendance[`${selectedDate}_${s.id}`] || "H";
-          if (att !== "H") return false; // Abaikan jika izin/sakit/alpha
+          if (att !== "H") return false;
 
           const isHaid = !!haidStatus[`${selectedDate}_${s.id}`];
-          const isRestrictedHaid =
+          if (
             isHaid &&
             (cat.name.toLowerCase().includes("sholat") ||
-              cat.name.toLowerCase().includes("puasa") ||
-              cat.name.toLowerCase().includes("dhuha"));
-          if (isRestrictedHaid) return false; // Aman (Udzur)
+              cat.name.toLowerCase().includes("puasa"))
+          )
+            return false;
 
           const isPuasa =
             puasaCat && !isHaid
               ? !!records[`${selectedDate}_${s.id}_${puasaCat.id}`]
               : false;
           if (isPuasa && catKeyword.toLowerCase() === "makan siang")
-            return false; // Aman (Makan Siang tercover Puasa)
+            return false;
 
           const isChecked = !!records[`${selectedDate}_${s.id}_${cat.id}`];
-          return !isChecked; // Masuk daftar jika TIDAK terceklis
+          return !isChecked;
         })
         .map((s) => `- ${s.name}`);
 
@@ -911,7 +914,6 @@ export default function App() {
     );
     let dhuhaText = "- Nihil";
     if (dhuhaCat) {
-      // Ambil total santri yang Hadir & Tidak Haid (Karena Haid = Udzur Dhuha)
       const presentAndNotHaidSantri = filteredSantri.filter(
         (s) =>
           (attendance[`${selectedDate}_${s.id}`] || "H") === "H" &&
@@ -936,7 +938,7 @@ export default function App() {
       const puasaSantri = filteredSantri.filter((s) => {
         const att = attendance[`${selectedDate}_${s.id}`] || "H";
         if (att !== "H") return false;
-        if (haidStatus[`${selectedDate}_${s.id}`]) return false; // Haid tidak bisa puasa
+        if (haidStatus[`${selectedDate}_${s.id}`]) return false;
         return records[`${selectedDate}_${s.id}_${puasaCat.id}`];
       });
       if (puasaSantri.length > 0) {
@@ -1079,46 +1081,6 @@ export default function App() {
       saveToFirebase("santri", updated);
     }
   };
-
-  const weekData = useMemo(() => {
-    try {
-      if (!selectedDate) return [];
-      const curr = new Date(selectedDate);
-      if (isNaN(curr.getTime())) return [];
-
-      const day = curr.getDay();
-      const diff = curr.getDate() - day + (day === 0 ? -6 : 1);
-      const monday = new Date(curr);
-      monday.setDate(diff);
-
-      const days = [];
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + i);
-        const isPastOrToday = d <= today;
-        days.push({
-          dateString: d.toISOString().split("T")[0],
-          label: d.getDate().toString().padStart(2, "0"),
-          dayName: [
-            "Minggu",
-            "Senin",
-            "Selasa",
-            "Rabu",
-            "Kamis",
-            "Jumat",
-            "Sabtu",
-          ][d.getDay()],
-          isActive: isPastOrToday,
-        });
-      }
-      return days;
-    } catch (e) {
-      return [];
-    }
-  }, [selectedDate]);
 
   // ---- RENDER KATALOG SANTRI (PUBLIC INDEX) ----
   if (showKatalog) {
@@ -1919,7 +1881,6 @@ export default function App() {
                               ]
                             : false;
                         const score = calculateScore(s.id);
-
                         return (
                           <tr
                             key={s.id}
