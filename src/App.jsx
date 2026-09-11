@@ -605,14 +605,12 @@ export default function App() {
     saveToFirebase("attendance", updated);
   };
 
-  // LOGIKA AUTO CEKLIS: Ceklis semua ibadah kecuali Puasa Sunnah (agar Makan Siang tidak otomatis terkunci)
   const handleAutoCheckAll = () => {
     const updated = { ...records };
     filteredSantri.forEach((s) => {
       const att = attendance[`${selectedDate}_${s.id}`] || "H";
       if (att === "H") {
         categories.forEach((c) => {
-          // Lewati (skip) kategori Puasa agar tidak tercentang otomatis
           if (!c.name.toLowerCase().includes("puasa")) {
             const key = `${selectedDate}_${s.id}_${c.id}`;
             updated[key] = true;
@@ -672,10 +670,9 @@ export default function App() {
       completedWajib = 0;
       stars = 0;
     } else if (att === "S") {
-      completedWajib = wajibCats.length; // Sakit = Kewajiban 100% tuntas via udzur
+      completedWajib = wajibCats.length;
       stars = 0;
     } else {
-      // Wajib Loop
       wajibCats.forEach((c) => {
         const isRestrictedHaid =
           isHaid && c.name.toLowerCase().includes("sholat");
@@ -684,12 +681,11 @@ export default function App() {
         if (isRestrictedHaid) {
           completedWajib += 1;
         } else if (isPuasa && isMakanSiang) {
-          completedWajib += 1; // Makan Siang otomatis Tuntas jika sedang puasa
+          completedWajib += 1;
         } else if (records[`${targetDate}_${santriId}_${c.id}`]) {
           completedWajib += 1;
         }
       });
-      // Sunnah Loop
       sunnahCats.forEach((c) => {
         const isRestrictedHaid =
           isHaid &&
@@ -882,12 +878,12 @@ export default function App() {
           if (att !== "H") return false;
 
           const isHaid = !!haidStatus[`${selectedDate}_${s.id}`];
-          if (
+          const isRestrictedHaid =
             isHaid &&
             (cat.name.toLowerCase().includes("sholat") ||
-              cat.name.toLowerCase().includes("puasa"))
-          )
-            return false;
+              cat.name.toLowerCase().includes("puasa") ||
+              cat.name.toLowerCase().includes("dhuha"));
+          if (isRestrictedHaid) return false;
 
           const isPuasa =
             puasaCat && !isHaid
