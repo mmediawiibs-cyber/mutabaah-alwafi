@@ -828,19 +828,6 @@ export default function App() {
     };
   };
 
-  // GENERATOR TEKS EVALUASI OTOMATIS BERDASARKAN PERINGKAT/SKOR
-  const generateAutoNote = (name, stats, rank) => {
-    if (rank <= 3) {
-      return `Maa syaa Allah, tabarakallah! Ananda ${name} luar biasa bulan ini dengan meraih peringkat ke-${rank}. Tingkat kedisiplinan ibadah wajib sangat memuaskan (${stats.avgPercent}%) dan berhasil mengumpulkan ${stats.sumStars} bintang sunnah. Pertahankan keistiqamahannya dan jadilah teladan bagi teman-teman yang lain!`;
-    } else if (stats.avgPercent >= 85) {
-      return `Alhamdulillah, performa mutabaah ananda ${name} sudah sangat baik dengan capaian ${stats.avgPercent}%. Terus istiqomah dan tingkatkan lagi amalan sunnahnya agar bisa meraih hasil yang lebih maksimal bulan depan. Semangat!`;
-    } else if (stats.avgPercent >= 60) {
-      return `Performa mutabaah ananda ${name} bulan ini cukup baik (${stats.avgPercent}%). Mari tingkatkan lagi kedisiplinan dan lebih semangat beribadahnya ya. Walas yakin ananda bisa lebih baik lagi!`;
-    } else {
-      return `Ananda ${name} perlu lebih fokus dan disiplin lagi dalam mutabaah hariannya. Jangan menyerah, jadikan evaluasi bulan ini sebagai motivasi untuk berubah. Selalu semangat dan perbaiki niat belajarnya ya.`;
-    }
-  };
-
   const openWAModal = (santri) => {
     const isHaid = !!haidStatus[`${selectedDate}_${santri.id}`];
     const attCode = attendance[`${selectedDate}_${santri.id}`] || "H";
@@ -912,7 +899,6 @@ export default function App() {
       `• Alpha: ${stats.totalA} hari\n` +
       `• Udzur/Haid: ${stats.totalUdzur} hari\n\n` +
       `*Pencapaian Ibadah:*\n` +
-      `• Rata-rata Kewajiban: *${stats.avgPercent}%*\n` +
       `• Total Ibadah Wajib: *${stats.sumCompletedWajib} Poin*\n` +
       `• Total Ibadah Sunnah: *${stats.sumStars} Bintang*\n` +
       `• Total Keseluruhan: *${stats.totalScore} Poin*\n\n` +
@@ -1532,7 +1518,7 @@ export default function App() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase">
+                  <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase font-bold">
                     <th className="pb-3 px-2">Hari, Tanggal</th>
                     <th className="pb-3 px-2 text-center">Wajib</th>
                     <th className="pb-3 px-2 text-center">Sunnah</th>
@@ -2280,11 +2266,11 @@ export default function App() {
 
                     const generateAutoNote = (name, stats, rank) => {
                       if (rank <= 3) {
-                        return `Maa syaa Allah, tabarakallah! Ananda ${name} luar biasa bulan ini dengan meraih peringkat ke-${rank}. Tingkat kedisiplinan ibadah wajib sangat memuaskan (${stats.avgPercent}%) dan berhasil mengumpulkan ${stats.sumStars} bintang sunnah. Pertahankan keistiqamahannya dan jadilah teladan bagi teman-teman yang lain!`;
+                        return `Maa syaa Allah, tabarakallah! Ananda ${name} menunjukkan hasil catatan mutaba'ah luar biasa bulan ini dengan meraih peringkat ke-${rank}. Tingkat kedisiplinan seragam, makan, ibadah wajib & sunnah di kelas, sangat memuaskan. Pertahankan keistiqamahannya dan jadilah teladan bagi teman-teman yang lain!✨`;
                       } else if (stats.avgPercent >= 85) {
-                        return `Alhamdulillah, performa mutabaah ananda ${name} sudah sangat baik dengan capaian ${stats.avgPercent}%. Terus istiqomah dan tingkatkan lagi amalan sunnahnya agar bisa meraih hasil yang lebih maksimal bulan depan. Semangat!`;
+                        return `Alhamdulillah, performa mutabaah ananda ${name} sudah sangat baik dengan capaian ${stats.totalScore} Poin. Terus istiqomah dan tingkatkan lagi amalan sunnahnya agar bisa meraih hasil yang lebih maksimal bulan depan. Semangat!`;
                       } else if (stats.avgPercent >= 60) {
-                        return `Performa mutabaah ananda ${name} bulan ini cukup baik (${stats.avgPercent}%). Mari tingkatkan lagi kedisiplinan dan lebih semangat beribadahnya ya. Walas yakin ananda bisa lebih baik lagi!`;
+                        return `Performa mutabaah ananda ${name} bulan ini cukup baik (${stats.totalScore} Poin). Mari tingkatkan lagi kedisiplinan dan lebih semangat beribadahnya ya. Walas yakin ananda bisa lebih baik lagi!`;
                       } else {
                         return `Ananda ${name} perlu lebih fokus dan disiplin lagi dalam mutabaah hariannya. Jangan menyerah, jadikan evaluasi bulan ini sebagai motivasi untuk berubah. Selalu semangat dan perbaiki niat belajarnya ya.`;
                       }
