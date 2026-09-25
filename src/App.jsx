@@ -1531,6 +1531,197 @@ export default function App() {
             </div>
           </div>
 
+          {/* GRAFIK PEKANAN WALI SANTRI */}
+          <div className="w-full overflow-hidden bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+              <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-[#1356e2]" /> Grafik Mutabaah
+                Pekanan
+              </h3>
+              <div className="flex gap-4 text-xs font-bold bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+                <span className="flex items-center gap-1.5 text-blue-600">
+                  <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm"></div>{" "}
+                  Ibadah Wajib
+                </span>
+                <span className="flex items-center gap-1.5 text-emerald-600">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm"></div>{" "}
+                  + Sunnah (Total)
+                </span>
+              </div>
+            </div>
+
+            <div className="w-full overflow-x-auto custom-scrollbar pb-2">
+              <div className="min-w-[600px]">
+                <svg
+                  viewBox="0 0 700 220"
+                  className="w-full h-auto drop-shadow-sm"
+                >
+                  {/* Grid Horizontal & Y-Axis (0 to 7) */}
+                  {[0, 1, 2, 3, 4, 5, 6, 7].map((val) => (
+                    <g key={`grid-${val}`}>
+                      <line
+                        x1="40"
+                        y1={180 - (val / 7) * 140}
+                        x2="680"
+                        y2={180 - (val / 7) * 140}
+                        stroke={val === 0 ? "#cbd5e1" : "#f1f5f9"}
+                        strokeWidth={val === 0 ? "2" : "1.5"}
+                        strokeDasharray={val === 0 ? "" : "4 4"}
+                      />
+                      <text
+                        x="30"
+                        y={180 - (val / 7) * 140 + 4}
+                        fontSize="11"
+                        fill="#94a3b8"
+                        textAnchor="end"
+                        fontWeight="bold"
+                      >
+                        {val}
+                      </text>
+                    </g>
+                  ))}
+
+                  {/* X-Axis Labels (Hari & Tanggal) */}
+                  {(weekData || []).map((d, i) => (
+                    <g key={`x-${i}`}>
+                      <text
+                        x={70 + i * 100}
+                        y="200"
+                        fontSize="10"
+                        fill="#64748b"
+                        textAnchor="middle"
+                      >
+                        {d.dayName}
+                      </text>
+                      <text
+                        x={70 + i * 100}
+                        y="215"
+                        fontSize="11"
+                        fill="#334155"
+                        textAnchor="middle"
+                        fontWeight="bold"
+                      >
+                        {d.label}
+                      </text>
+                    </g>
+                  ))}
+
+                  {/* Garis Wajib (Biru) */}
+                  <polyline
+                    points={(weekData || [])
+                      .map((d, i) => {
+                        if (!d.isActive || offDays[d.dateString]) return null;
+                        const score = calculateScore(santri.id, d.dateString);
+                        const attCode =
+                          attendance[`${d.dateString}_${santri.id}`] || "H";
+                        if (attCode !== "H" && attCode !== "S")
+                          return `${70 + i * 100},180`; // Alpha/Izin = 0
+                        return `${70 + i * 100},${180 - (score.completedWajib / 7) * 140}`;
+                      })
+                      .filter(Boolean)
+                      .join(" ")}
+                    fill="none"
+                    stroke="#3b82f6"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+
+                  {/* Garis Total Wajib+Sunnah (Hijau) */}
+                  <polyline
+                    points={(weekData || [])
+                      .map((d, i) => {
+                        if (!d.isActive || offDays[d.dateString]) return null;
+                        const score = calculateScore(santri.id, d.dateString);
+                        const attCode =
+                          attendance[`${d.dateString}_${santri.id}`] || "H";
+                        if (attCode !== "H" && attCode !== "S")
+                          return `${70 + i * 100},180`; // Alpha/Izin = 0
+                        return `${70 + i * 100},${180 - ((score.completedWajib + score.stars) / 7) * 140}`;
+                      })
+                      .filter(Boolean)
+                      .join(" ")}
+                    fill="none"
+                    stroke="#10b981"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+
+                  {/* Titik-Titik Nilai (Dots) */}
+                  {(weekData || []).map((d, i) => {
+                    if (!d.isActive || offDays[d.dateString]) return null;
+                    const score = calculateScore(santri.id, d.dateString);
+                    const attCode =
+                      attendance[`${d.dateString}_${santri.id}`] || "H";
+
+                    const x = 70 + i * 100;
+                    let wY = 180;
+                    let tY = 180;
+                    let wVal = 0;
+                    let tVal = 0;
+
+                    if (attCode === "H" || attCode === "S") {
+                      wY = 180 - (score.completedWajib / 7) * 140;
+                      tY =
+                        180 - ((score.completedWajib + score.stars) / 7) * 140;
+                      wVal = score.completedWajib;
+                      tVal = score.completedWajib + score.stars;
+                    }
+
+                    return (
+                      <g key={`dots-${i}`}>
+                        {/* Wajib Dot */}
+                        <circle
+                          cx={x}
+                          cy={wY}
+                          r="4.5"
+                          fill="#fff"
+                          stroke="#3b82f6"
+                          strokeWidth="2.5"
+                        />
+                        {/* Total Dot */}
+                        <circle
+                          cx={x}
+                          cy={tY}
+                          r="4.5"
+                          fill="#fff"
+                          stroke="#10b981"
+                          strokeWidth="2.5"
+                        />
+
+                        {/* Label Wajib (Hanya muncul jika beda dengan total agar tidak menumpuk) */}
+                        {wVal !== tVal && (
+                          <text
+                            x={x}
+                            y={wY + 16}
+                            fontSize="10"
+                            fill="#2563eb"
+                            textAnchor="middle"
+                            fontWeight="bold"
+                          >
+                            {wVal}
+                          </text>
+                        )}
+                        {/* Label Total */}
+                        <text
+                          x={x}
+                          y={tY - 10}
+                          fontSize="11"
+                          fill="#059669"
+                          textAnchor="middle"
+                          fontWeight="black"
+                        >
+                          {tVal}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
             <div className="flex items-center gap-2 mb-4">
               <CalendarDays className="w-5 h-5 text-[#1356e2]" />
@@ -2352,18 +2543,6 @@ export default function App() {
                       badgeClass =
                         "bg-gradient-to-br from-amber-600 to-orange-700 text-white shadow-orange-500/50 shadow-lg ring-2 ring-orange-300";
 
-                    const generateAutoNote = (name, stats, rank) => {
-                      if (rank <= 3) {
-                        return `Maa syaa Allah, tabarakallah! Ananda ${name} menunjukkan hasil catatan mutaba'ah luar biasa bulan ini dengan meraih peringkat ke-${rank}. Tingkat kedisiplinan seragam, makan, ibadah wajib & sunnah di kelas, sangat memuaskan. Pertahankan keistiqamahannya dan jadilah teladan bagi teman-teman yang lain!✨`;
-                      } else if (stats.avgPercent >= 85) {
-                        return `Alhamdulillah, performa mutabaah ananda ${name} sudah sangat baik dengan capaian ${stats.totalScore} Poin. Terus istiqomah dan tingkatkan lagi amalan sunnahnya agar bisa meraih hasil yang lebih maksimal bulan depan. Semangat!`;
-                      } else if (stats.avgPercent >= 60) {
-                        return `Performa mutabaah ananda ${name} bulan ini cukup baik (${stats.totalScore} Poin). Mari tingkatkan lagi kedisiplinan dan lebih semangat beribadahnya ya. Walas yakin ananda bisa lebih baik lagi!`;
-                      } else {
-                        return `Ananda ${name} perlu lebih fokus dan disiplin lagi dalam mutabaah hariannya. Jangan menyerah, jadikan evaluasi bulan ini sebagai motivasi untuk berubah. Selalu semangat dan perbaiki niat belajarnya ya.`;
-                      }
-                    };
-
                     return (
                       <div
                         key={s.id}
@@ -2534,11 +2713,16 @@ export default function App() {
                             </span>
                             <button
                               onClick={() => {
-                                const note = generateAutoNote(
-                                  s.name,
-                                  stats,
-                                  rank,
-                                );
+                                let note = "";
+                                if (rank <= 3) {
+                                  note = `Maa syaa Allah, tabarakallah! Ananda ${s.name} menunjukkan hasil catatan mutaba'ah luar biasa bulan ini dengan meraih peringkat ke-${rank}. Tingkat kedisiplinan seragam, makan, ibadah wajib & sunnah di kelas, sangat memuaskan. Pertahankan keistiqamahannya dan jadilah teladan bagi teman-teman yang lain!✨`;
+                                } else if (stats.totalScore >= 80) {
+                                  note = `Alhamdulillah, performa mutabaah ananda ${s.name} sudah sangat baik dengan capaian ${stats.totalScore} Poin. Terus istiqomah dan tingkatkan lagi amalan sunnahnya agar bisa meraih hasil yang lebih maksimal bulan depan. Semangat!`;
+                                } else if (stats.totalScore >= 50) {
+                                  note = `Performa mutabaah ananda ${s.name} bulan ini cukup baik (${stats.totalScore} Poin). Mari tingkatkan lagi kedisiplinan dan lebih semangat beribadahnya ya. Walas yakin ananda bisa lebih baik lagi!`;
+                                } else {
+                                  note = `Ananda ${s.name} perlu lebih fokus dan disiplin lagi dalam mutabaah hariannya. Jangan menyerah, jadikan evaluasi bulan ini sebagai motivasi untuk berubah. Selalu semangat dan perbaiki niat belajarnya ya.`;
+                                }
                                 handleRaporNoteChange(s.id, note);
                               }}
                               className="text-[9px] flex items-center gap-1 bg-purple-50 text-purple-600 hover:bg-purple-100 px-2 py-0.5 rounded-full font-bold transition-all border border-purple-200 print:hidden"
