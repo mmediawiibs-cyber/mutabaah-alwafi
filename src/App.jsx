@@ -28,6 +28,7 @@ import {
   FileText,
   FileBarChart,
   Trophy,
+  Power,
 } from "lucide-react";
 import { db } from "./firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
@@ -371,6 +372,7 @@ export default function App() {
   const [notes, setNotes] = useState({});
   const [attendance, setAttendance] = useState({});
   const [haidStatus, setHaidStatus] = useState({});
+  const [offDays, setOffDays] = useState({}); // State untuk menampung data Hari Libur
   const [achievements, setAchievements] = useState([]);
   const [violations, setViolations] = useState([]);
   const [raporNotes, setRaporNotes] = useState({});
@@ -472,6 +474,12 @@ export default function App() {
     const unsubHaid = onSnapshot(doc(db, "mutabaah_data", "haid"), (d) => {
       if (d.exists() && d.data().data) setHaidStatus(d.data().data);
     });
+    const unsubOffDays = onSnapshot(
+      doc(db, "mutabaah_data", "off_days"),
+      (d) => {
+        if (d.exists() && d.data().data) setOffDays(d.data().data);
+      },
+    );
     const unsubAch = onSnapshot(
       doc(db, "mutabaah_data", "achievements"),
       (d) => {
@@ -491,6 +499,7 @@ export default function App() {
       unsubRaporNotes();
       unsubAtt();
       unsubHaid();
+      unsubOffDays();
       unsubAch();
       unsubVio();
     };
@@ -598,6 +607,17 @@ export default function App() {
     const updated = { ...haidStatus, [key]: !haidStatus[key] };
     setHaidStatus(updated);
     saveToFirebase("haid", updated);
+  };
+
+  const toggleOffDay = () => {
+    const updated = { ...offDays };
+    if (updated[selectedDate]) {
+      delete updated[selectedDate];
+    } else {
+      updated[selectedDate] = true;
+    }
+    setOffDays(updated);
+    saveToFirebase("off_days", updated);
   };
 
   const setSantriAttendance = (santriId, status) => {
@@ -792,6 +812,8 @@ export default function App() {
     let activeDays = 0;
 
     evalDateArray.forEach((d) => {
+      if (offDays[d]) return; // Skip calculation for off days
+
       const att = attendance[`${d}_${santriId}`] || "H";
       if (att === "H") totalH++;
       if (att === "I") totalI++;
@@ -1394,6 +1416,14 @@ export default function App() {
               </div>
             </div>
 
+            {offDays[selectedDate] && (
+              <div className="mb-4 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl flex items-center gap-3 text-sm font-bold shadow-sm">
+                <Power className="w-5 h-5" />
+                Hari ini ditandai sebagai Hari Libur / Kepulangan. Data hari ini
+                tidak dihitung dalam rekapitulasi pekanan maupun rapor evaluasi.
+              </div>
+            )}
+
             <div className="mb-4 flex flex-wrap gap-2">
               <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 flex items-center gap-2">
                 Status Kehadiran:
@@ -1540,6 +1570,31 @@ export default function App() {
                             -
                           </td>
                           <td className="py-3 px-2 text-center text-slate-300">
+                            -
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    if (offDays[d.dateString]) {
+                      return (
+                        <tr
+                          key={d.dateString}
+                          className="hover:bg-rose-50/50 bg-rose-50/30"
+                        >
+                          <td className="py-3 px-2 font-semibold text-slate-700">
+                            {d.dayName}, {d.label}
+                            <span className="text-[9px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded ml-2">
+                              LIBUR / OFF
+                            </span>
+                          </td>
+                          <td className="py-3 px-2 text-center text-slate-400">
+                            -
+                          </td>
+                          <td className="py-3 px-2 text-center text-slate-400">
+                            -
+                          </td>
+                          <td className="py-3 px-2 text-center text-slate-400">
                             -
                           </td>
                         </tr>
@@ -1892,6 +1947,17 @@ export default function App() {
                 {viewMode === "harian" && (
                   <>
                     <button
+                      onClick={toggleOffDay}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm flex items-center gap-2 transition-all ${
+                        offDays[selectedDate]
+                          ? "bg-rose-500 text-white hover:bg-rose-600"
+                          : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Power className="w-4 h-4" />{" "}
+                      {offDays[selectedDate] ? "Libur (Off)" : "Set Libur"}
+                    </button>
+                    <button
                       onClick={handleAutoCheckAll}
                       className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#1356e2] to-[#d38cf6] text-white text-xs font-bold shadow-sm hover:opacity-95 flex items-center gap-2"
                     >
@@ -1925,6 +1991,15 @@ export default function App() {
             {/* TAB HARIAN */}
             {viewMode === "harian" && (
               <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                {offDays[selectedDate] && (
+                  <div className="m-4 mb-0 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl flex items-center gap-3 text-sm font-bold shadow-sm">
+                    <Power className="w-5 h-5" />
+                    Hari ini ditandai sebagai Hari Libur / Kepulangan. Data hari
+                    ini tidak dihitung dalam rekapitulasi pekanan maupun rapor
+                    evaluasi.
+                  </div>
+                )}
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead>
@@ -2159,6 +2234,19 @@ export default function App() {
                             </td>
                             {(weekData || []).map((d) => {
                               if (d.isActive) {
+                                if (offDays[d.dateString]) {
+                                  return (
+                                    <td
+                                      key={d.dateString}
+                                      className="py-3 text-center"
+                                    >
+                                      <span className="text-[9px] font-bold text-rose-500 bg-rose-50 px-2 py-1 rounded">
+                                        OFF
+                                      </span>
+                                    </td>
+                                  );
+                                }
+
                                 const score = calculateScore(
                                   s.id,
                                   d.dateString,
@@ -2330,8 +2418,21 @@ export default function App() {
                           </div>
                           <div className="h-16 flex items-end gap-1 w-full bg-slate-100 p-2 rounded-xl border border-slate-200 shadow-inner">
                             {(evalDateArray || []).map((d) => {
-                              const score = calculateScore(s.id, d);
+                              if (offDays[d]) {
+                                return (
+                                  <div
+                                    key={d}
+                                    title={`${d}: Libur/Off`}
+                                    className="flex-1 bg-rose-200/40 rounded-sm relative group h-full flex flex-col justify-end overflow-hidden border border-rose-300/50"
+                                  >
+                                    <span className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-rose-600 text-white text-[8px] px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 pointer-events-none z-10 whitespace-nowrap">
+                                      Libur
+                                    </span>
+                                  </div>
+                                );
+                              }
 
+                              const score = calculateScore(s.id, d);
                               let barColor = "bg-blue-500";
                               if (score.percent <= 25) barColor = "bg-rose-500";
                               else if (score.percent <= 50)
