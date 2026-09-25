@@ -788,6 +788,7 @@ export default function App() {
       totalUdzur = 0;
     let sumPercent = 0;
     let sumStars = 0;
+    let sumCompletedWajib = 0;
     let activeDays = 0;
 
     evalDateArray.forEach((d) => {
@@ -802,6 +803,7 @@ export default function App() {
       const score = calculateScore(santriId, d);
       if (att === "H" || att === "S") {
         sumPercent += score.percent;
+        sumCompletedWajib += score.completedWajib;
         activeDays++;
       } else {
         sumPercent += 0;
@@ -811,7 +813,19 @@ export default function App() {
     });
 
     const avgPercent = activeDays > 0 ? Math.round(sumPercent / activeDays) : 0;
-    return { totalH, totalI, totalS, totalA, totalUdzur, avgPercent, sumStars };
+    const totalScore = sumCompletedWajib + sumStars;
+
+    return {
+      totalH,
+      totalI,
+      totalS,
+      totalA,
+      totalUdzur,
+      avgPercent,
+      sumStars,
+      sumCompletedWajib,
+      totalScore,
+    };
   };
 
   const openWAModal = (santri) => {
@@ -886,7 +900,9 @@ export default function App() {
       `• Udzur/Haid: ${stats.totalUdzur} hari\n\n` +
       `*Pencapaian Ibadah:*\n` +
       `• Rata-rata Kewajiban: *${stats.avgPercent}%*\n` +
-      `• Total Sunnah: *${stats.sumStars} Bintang*\n\n` +
+      `• Total Ibadah Wajib: *${stats.sumCompletedWajib} Poin*\n` +
+      `• Total Ibadah Sunnah: *${stats.sumStars} Bintang*\n` +
+      `• Total Keseluruhan: *${stats.totalScore} Poin*\n\n` +
       `*Catatan Evaluasi:*\n${evalNote || "Alhamdulillah, tingkatkan terus keistiqamahannya."}\n\n` +
       `_Semoga Allah mudahkan langkah ananda dalam menuntut ilmu._\n` +
       `Ummu bisa melihat portofolio detail ananda di: https://${window.location.host}/#/view/${santri.id}`;
@@ -2209,6 +2225,9 @@ export default function App() {
                       return { ...s, stats: calculateEvalStats(s.id) };
                     })
                     .sort((a, b) => {
+                      if (b.stats.totalScore !== a.stats.totalScore) {
+                        return b.stats.totalScore - a.stats.totalScore;
+                      }
                       if (b.stats.avgPercent !== a.stats.avgPercent) {
                         return b.stats.avgPercent - a.stats.avgPercent;
                       }
@@ -2288,10 +2307,13 @@ export default function App() {
                             </span>
                             <div className="text-right">
                               <span className="text-2xl font-black text-[#1356e2] leading-none">
-                                {stats.avgPercent}%
+                                {stats.avgPercent}%{" "}
+                                <span className="text-sm text-slate-500 font-bold ml-1">
+                                  ({stats.sumCompletedWajib} Poin)
+                                </span>
                               </span>
                               <span className="text-[10px] text-slate-400 block">
-                                Rata-Rata Tuntas
+                                Rata-Rata & Total Wajib
                               </span>
                             </div>
                           </div>
@@ -2326,6 +2348,15 @@ export default function App() {
                         </div>
 
                         <div className="flex flex-col gap-2 justify-center xl:w-48 shrink-0">
+                          <div className="bg-blue-50 text-blue-700 p-2 rounded-xl border border-blue-100 flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-bold uppercase">
+                              Total Poin
+                            </span>
+                            <span className="text-sm font-black flex items-center gap-1">
+                              {stats.totalScore}{" "}
+                              <Award className="w-3 h-3 fill-blue-500" />
+                            </span>
+                          </div>
                           <div className="bg-emerald-50 text-emerald-700 p-2 rounded-xl border border-emerald-100 flex items-center justify-between">
                             <span className="text-[10px] font-bold uppercase">
                               Total Sunnah
@@ -2335,7 +2366,7 @@ export default function App() {
                               <Star className="w-3 h-3 fill-emerald-500" />
                             </span>
                           </div>
-                          <div className="grid grid-cols-2 gap-1 text-[9px] font-bold text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                          <div className="grid grid-cols-2 gap-1 text-[9px] font-bold text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100 mt-1">
                             <div className="flex justify-between">
                               Hadir:{" "}
                               <span className="text-slate-800">
