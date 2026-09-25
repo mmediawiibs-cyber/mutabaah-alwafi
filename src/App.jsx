@@ -815,7 +815,17 @@ export default function App() {
     const avgPercent = activeDays > 0 ? Math.round(sumPercent / activeDays) : 0;
     const totalScore = sumCompletedWajib + sumStars;
 
-    return { totalH, totalI, totalS, totalA, totalUdzur, avgPercent, sumStars, sumCompletedWajib, totalScore };
+    return {
+      totalH,
+      totalI,
+      totalS,
+      totalA,
+      totalUdzur,
+      avgPercent,
+      sumStars,
+      sumCompletedWajib,
+      totalScore,
+    };
   };
 
   // GENERATOR TEKS EVALUASI OTOMATIS BERDASARKAN PERINGKAT/SKOR
@@ -1777,7 +1787,7 @@ export default function App() {
                   <Icon className="w-4 h-4" /> {m.name}
                 </button>
               );
-            });}
+            })}
           </nav>
         </div>
         <button
@@ -2322,7 +2332,10 @@ export default function App() {
                             </span>
                             <div className="text-right">
                               <span className="text-2xl font-black text-[#1356e2] leading-none">
-                                {stats.avgPercent}% <span className="text-sm text-slate-500 font-bold ml-1">({stats.sumCompletedWajib} Poin)</span>
+                                {stats.avgPercent}%{" "}
+                                <span className="text-sm text-slate-500 font-bold ml-1">
+                                  ({stats.sumCompletedWajib} Poin)
+                                </span>
                               </span>
                               <span className="text-[10px] text-slate-400 block">
                                 Rata-Rata & Total Wajib
@@ -2365,7 +2378,8 @@ export default function App() {
                               Total Poin
                             </span>
                             <span className="text-sm font-black flex items-center gap-1">
-                              {stats.totalScore} <Award className="w-3 h-3 fill-blue-500" />
+                              {stats.totalScore}{" "}
+                              <Award className="w-3 h-3 fill-blue-500" />
                             </span>
                           </div>
                           <div className="bg-emerald-50 text-emerald-700 p-2 rounded-xl border border-emerald-100 flex items-center justify-between">
@@ -2426,12 +2440,18 @@ export default function App() {
                               )}
                             </div>
                           )}
-                          
+
                           <div className="flex justify-between items-center mb-1">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase">Catatan Evaluasi</span>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase">
+                              Catatan Evaluasi
+                            </span>
                             <button
                               onClick={() => {
-                                const note = generateAutoNote(s.name, stats, rank);
+                                const note = generateAutoNote(
+                                  s.name,
+                                  stats,
+                                  rank,
+                                );
                                 handleRaporNoteChange(s.id, note);
                               }}
                               className="text-[9px] flex items-center gap-1 bg-purple-50 text-purple-600 hover:bg-purple-100 px-2 py-0.5 rounded-full font-bold transition-all border border-purple-200 print:hidden"
@@ -2439,7 +2459,7 @@ export default function App() {
                               <Sparkles className="w-3 h-3" /> Auto-Generate
                             </button>
                           </div>
-                          
+
                           <textarea
                             placeholder="Tulis catatan rapor evaluasi ananda di sini..."
                             value={currentNote}
@@ -3014,7 +3034,7 @@ export default function App() {
                 </div>
               </form>
             </div>
-            
+
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
               <h3 className="font-bold text-slate-800 mb-4">
                 Riwayat Pelanggaran
